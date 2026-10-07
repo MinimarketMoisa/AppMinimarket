@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
-import 'features/catalog/presentation/pages/catalog_page.dart';
+import 'features/delivery/presentation/pages/delivery_home_page.dart';
+import 'features/shell/client_shell.dart';
+import 'features/staff/presentation/pages/staff_home_page.dart';
 
 void main() => runApp(const ProviderScope(child: MinimarketApp()));
 
@@ -19,6 +21,7 @@ class MinimarketApp extends StatelessWidget {
       );
 }
 
+/// Decide qué pantalla mostrar según la sesión y el rol del usuario.
 class _Root extends ConsumerWidget {
   const _Root();
 
@@ -27,15 +30,17 @@ class _Root extends ConsumerWidget {
     return ref.watch(authProvider).when(
           loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (_, __) => const LoginPage(),
-          data: (user) => user == null
-              ? const LoginPage()
-              : Scaffold(
-                  body: const CatalogPage(),
-                  floatingActionButton: FloatingActionButton.small(
-                    onPressed: () => ref.read(authProvider.notifier).logout(),
-                    child: const Icon(Icons.logout),
-                  ),
-                ),
+          data: (user) {
+            if (user == null) return const LoginPage();
+            switch (user.rol) {
+              case 'repartidor':
+                return const DeliveryHomePage();
+              case 'empleado':
+                return const StaffHomePage();
+              default:
+                return const ClientShell();
+            }
+          },
         );
   }
 }
