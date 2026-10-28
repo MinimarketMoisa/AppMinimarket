@@ -23,20 +23,26 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<UserEntity> register({
+  Future<String?> register({
     required String nombreCompleto,
     required String email,
     required String password,
     String? telefono,
   }) async {
-    await _remote.register(
+    return _remote.register(
       nombreCompleto: nombreCompleto,
       email: email,
       password: password,
       telefono: telefono,
     );
-    return login(email, password);
   }
+
+  @override
+  Future<String> verifyEmail(String token) => _remote.verifyEmail(token);
+
+  @override
+  Future<String> resendVerification(String email) =>
+      _remote.resendVerification(email);
 
   @override
   Future<UserEntity?> currentUser() async {
@@ -45,7 +51,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       return await _remote.me();
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         await _storage.clear();
         return null;
       }

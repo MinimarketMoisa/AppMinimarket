@@ -32,20 +32,25 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     state = AsyncData(user);
   }
 
-  Future<void> register({
+  Future<String?> register({
     required String nombreCompleto,
     required String email,
     required String password,
     String? telefono,
   }) async {
-    final user = await RegisterUseCase(_repo)(
+    return RegisterUseCase(_repo)(
       nombreCompleto: nombreCompleto,
       email: email,
       password: password,
       telefono: telefono,
     );
-    state = AsyncData(user);
   }
+
+  Future<String> verifyEmail(String token) =>
+      VerifyEmailUseCase(_repo)(token);
+
+  Future<String> resendVerification(String email) =>
+      ResendVerificationUseCase(_repo)(email);
 
   Future<void> logout() async {
     await LogoutUseCase(_repo)();

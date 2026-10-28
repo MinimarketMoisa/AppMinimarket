@@ -22,6 +22,9 @@ sigue siendo responsable de autorizar las operaciones del rol.
 | Función | Método y ruta | Datos principales |
 |---|---|---|
 | Iniciar sesión | POST `/auth/login` | Form: `username`, `password` |
+| Registrar cliente | POST `/auth/registro` | `nombre_completo`, `email`, `password`, `telefono` opcional; requiere verificación antes de iniciar sesión |
+| Verificar correo | POST `/auth/verificar-correo` | JSON: `{"token":"..."}` |
+| Reenviar verificación | POST `/auth/reenviar-verificacion` | JSON: `{"email":"..."}` |
 | Usuario autenticado | GET `/auth/me` | `id_usuario`, `nombre_completo`, `email`, `rol` |
 | Categorías / catálogo | GET `/categorias`, `/productos` | Filtros `id_categoria`, `q` |
 | Stock por sucursal | GET `/productos/{id_producto}/disponibilidad` | `id_sucursal`, `nombre_sucursal`, `stock_disponible` |
@@ -46,7 +49,11 @@ El pedido se crea con `items: [{"id_producto": 1, "cantidad": 2}]`,
 
 ## Validación contra la API desplegada
 
-La app se ajusta al OpenAPI publicado por el host desplegado. `ProductoOut` no
+La app se ajusta al OpenAPI publicado por el host desplegado. El flujo de
+registro muestra la pantalla de verificación y no inicia sesión automáticamente.
+Si el correo no llega, se puede solicitar un reenvío desde esa pantalla. La
+entrega efectiva del correo depende de la configuración SMTP/correo del backend.
+`ProductoOut` no
 declara stock; la app obtiene ese dato desde la ruta de disponibilidad por
 sucursal. Las rutas WebSocket no aparecen en OpenAPI y deben probarse con el
 backend, incluidos autenticación y formato de los mensajes. Durante la

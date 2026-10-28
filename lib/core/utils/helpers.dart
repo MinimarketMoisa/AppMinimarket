@@ -30,6 +30,25 @@ String estadoLabel(String e) =>
 /// Convierte cualquier error en un mensaje legible para el usuario.
 String errorMessage(Object e) {
   if (e is DioException) {
+    final statusCode = e.response?.statusCode;
+    switch (statusCode) {
+      case 401:
+        return 'Correo o contraseña incorrectos, o la sesión expiró.';
+      case 403:
+        return 'La cuenta no tiene permiso para esta acción o requiere verificar el correo.';
+      case 404:
+        return 'No se encontró el recurso solicitado.';
+      case 409:
+        return 'La solicitud entra en conflicto con el estado actual. Actualiza e inténtalo de nuevo.';
+      case 429:
+        return 'Hay demasiadas solicitudes. Espera un momento e inténtalo de nuevo.';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'El servidor de Minimarket está teniendo problemas (HTTP $statusCode). Inténtalo más tarde.';
+    }
+
     final d = e.response?.data;
     if (d is Map && d['detail'] != null) {
       final det = d['detail'];
@@ -43,8 +62,9 @@ String errorMessage(Object e) {
     }
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
-        e.type == DioExceptionType.receiveTimeout) {
-      return 'No se pudo conectar con el servidor';
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return 'No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
     }
   }
   if (e is DioException && e.message != null) {

@@ -4,6 +4,9 @@ class ApiEndpoints {
   static const login = '/auth/login'; // POST form: username(email), password
   static const register = '/auth/registro'; // POST json
   static const me = '/auth/me'; // GET
+  static const verifyEmail = '/auth/verificar-correo'; // POST {token}
+  static const resendVerification =
+      '/auth/reenviar-verificacion'; // POST {email}
 
   // Catálogo
   static const categorias = '/categorias'; // GET

@@ -13,6 +13,7 @@ class _MockError implements Exception {
 class MockApiInterceptor extends Interceptor {
   int _nextUser = 4, _nextDir = 3, _nextPedido = 1;
   String _estadoRepartidor = 'LIBRE';
+  String? _pendingVerificationEmail;
 
   final List<Map<String, dynamic>> _users = [
     {
@@ -22,6 +23,7 @@ class MockApiInterceptor extends Interceptor {
       'password': '123456',
       'telefono': '7000-0001',
       'rol': 'cliente',
+      'email_verificado': true,
     },
     {
       'id': 3,
@@ -30,12 +32,21 @@ class MockApiInterceptor extends Interceptor {
       'password': '123456',
       'telefono': '7000-0003',
       'rol': 'repartidor',
+      'email_verificado': true,
     },
   ];
 
   final List<Map<String, dynamic>> _sucursales = [
-    {'id_sucursal': 1, 'nombre': 'Minimarket San Miguel', 'direccion': 'San Miguel'},
-    {'id_sucursal': 2, 'nombre': 'Minimarket Moncagua', 'direccion': 'Moncagua'},
+    {
+      'id_sucursal': 1,
+      'nombre': 'Minimarket San Miguel',
+      'direccion': 'San Miguel',
+    },
+    {
+      'id_sucursal': 2,
+      'nombre': 'Minimarket Moncagua',
+      'direccion': 'Moncagua',
+    },
   ];
 
   final List<Map<String, dynamic>> _categorias = [
@@ -220,7 +231,7 @@ class MockApiInterceptor extends Interceptor {
       'id': _nextPedido++,
       'cliente_id': clienteId,
       'cliente_nombre': cliente['nombre_completo'],
-      'repartidor_id': domicilio ? 3 : null,
+      'repartidor_id': domicilio && clienteId != 3 ? 3 : null,
       'canal': 'app_movil',
       'fecha_creacion': DateTime.now().toIso8601String(),
       'estado': estado,
@@ -257,6 +268,9 @@ class MockApiInterceptor extends Interceptor {
       if (found.isEmpty) {
         throw _MockError(401, 'Correo o contraseña incorrectos');
       }
+      if (found.first['email_verificado'] != true) {
+        throw _MockError(403, 'Debes verificar tu correo antes de iniciar sesión');
+      }
       return {
         'access_token': 'mock-${found.first['id']}',
         'token_type': 'bearer',
@@ -273,9 +287,42 @@ class MockApiInterceptor extends Interceptor {
         'password': body['password'],
         'telefono': body['telefono'],
         'rol': 'cliente',
+        'email_verificado': false,
       };
       _users.add(u);
-      return _publicUser(u);
+      _pendingVerificationEmail = u['email'] as String;
+      return {
+        ..._publicUser(u),
+        'mensaje': 'Te hemos enviado un correo de verificación.',
+      };
+    }
+    if (path == ApiEndpoints.verifyEmail && m == 'POST') {
+      if (body['token'] != '123456' || _pendingVerificationEmail == null) {
+        throw _MockError(400, 'Token de verificación inválido');
+      }
+      final user = _users.firstWhere(
+        (item) => item['email'] == _pendingVerificationEmail,
+      );
+      user['email_verificado'] = true;
+      _pendingVerificationEmail = null;
+      return {
+        'mensaje': 'Correo verificado correctamente.',
+        'verificado': true,
+      };
+    }
+    if (path == ApiEndpoints.resendVerification && m == 'POST') {
+      final email = (body['email'] as String? ?? '').trim().toLowerCase();
+      final user = _users.where(
+        (item) => (item['email'] as String).toLowerCase() == email,
+      );
+      if (user.isEmpty) {
+        throw _MockError(404, 'No se encontró una cuenta con ese correo');
+      }
+      if (user.first['email_verificado'] == true) {
+        throw _MockError(409, 'El correo ya está verificado');
+      }
+      _pendingVerificationEmail = user.first['email'] as String;
+      return {'mensaje': 'Correo de verificación reenviado.'};
     }
 
     final me = _currentUser(o);
@@ -284,7 +331,9 @@ class MockApiInterceptor extends Interceptor {
     if (path == ApiEndpoints.me) return _publicUser(me);
     if (path == ApiEndpoints.categorias) return _categorias;
     if (path == ApiEndpoints.productos) {
-      final cat = int.tryParse('${q['id_categoria'] ?? q['categoria_id'] ?? ''}');
+      final cat = int.tryParse(
+        '${q['id_categoria'] ?? q['categoria_id'] ?? ''}',
+      );
       final txt = '${q['q'] ?? ''}'.toLowerCase();
       return _productos
           .where((p) => cat == null || p['categoria_id'] == cat)
@@ -294,6 +343,26 @@ class MockApiInterceptor extends Interceptor {
                 (p['nombre'] as String).toLowerCase().contains(txt),
           )
           .toList();
+    }
+    final availability = RegExp(r'^/productos/(\d+)/disponibilidad$')
+        .firstMatch(path);
+    if (availability != null) {
+      final productId = int.parse(availability.group(1)!);
+      if (!_productos.any((product) => product['id'] == productId)) {
+        throw _MockError(404, 'Producto no existe');
+      }
+      return _inventario.where((row) => row['id_producto'] == productId).map((
+        row,
+      ) {
+        final branch = _sucursales.firstWhere(
+          (item) => item['id_sucursal'] == row['id_sucursal'],
+        );
+        return {
+          'id_sucursal': row['id_sucursal'],
+          'nombre_sucursal': branch['nombre'],
+          'stock_disponible': row['stock_disponible'],
+        };
+      }).toList();
     }
     if (path == ApiEndpoints.municipios) return _municipios;
     if (path == ApiEndpoints.sucursales) return _sucursales;
@@ -352,9 +421,7 @@ class MockApiInterceptor extends Interceptor {
     final tracking = RegExp(r'^/pedidos/(\d+)/seguimiento$').firstMatch(path);
     if (tracking != null) {
       final p = _pedido(int.parse(tracking.group(1)!));
-      final direccion = _direcciones.where(
-        (d) => d['id'] == p['direccion_id'],
-      );
+      final direccion = _direcciones.where((d) => d['id'] == p['direccion_id']);
       final destino = direccion.isEmpty ? null : _dirJson(direccion.first);
       return {
         'id_pedido': p['id'],
@@ -389,9 +456,8 @@ class MockApiInterceptor extends Interceptor {
         },
       };
     }
-    final action = RegExp(
-      r'^/pedidos/(\d+)/(enviar-factura|denunciar)$',
-    ).firstMatch(path);
+    final action = RegExp(r'^/pedidos/(\d+)/(enviar-factura|denunciar)$')
+        .firstMatch(path);
     if (action != null) {
       _pedido(int.parse(action.group(1)!));
       if (action.group(2) == 'denunciar' &&

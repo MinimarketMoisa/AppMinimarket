@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/utils/helpers.dart';
 import '../providers/auth_provider.dart';
+import 'email_verification_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -17,6 +19,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   bool _loading = false, _hide = true;
+  bool _needsVerification = false;
   String? _error;
 
   @override
@@ -31,13 +34,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() {
       _loading = true;
       _error = null;
+      _needsVerification = false;
     });
     try {
       await ref
           .read(authProvider.notifier)
           .login(_email.text.trim(), _pass.text);
     } catch (e) {
-      if (mounted) setState(() => _error = errorMessage(e));
+      if (mounted) {
+        setState(() {
+          _error = errorMessage(e);
+          _needsVerification = e is DioException &&
+              (e.response?.statusCode == 403 ||
+                  (e.response?.data is Map &&
+                      '${(e.response!.data as Map)['detail'] ?? ''}'
+                          .toLowerCase()
+                          .contains('verific')));
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -124,6 +138,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       child: const Text('¿No tienes cuenta? Regístrate'),
                     ),
+                    if (_needsVerification)
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => EmailVerificationPage(
+                              initialEmail: _email.text.trim(),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.mark_email_unread_outlined),
+                        label: const Text('Verificar o reenviar correo'),
+                      ),
+                    if (!_needsVerification)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => EmailVerificationPage(
+                              initialEmail: _email.text.trim(),
+                            ),
+                          ),
+                        ),
+                        child: const Text('¿No recibiste el correo?'),
+                      ),
                     if (AppConfig.useMock) ...[const Divider(height: 32)],
                   ],
                 ),

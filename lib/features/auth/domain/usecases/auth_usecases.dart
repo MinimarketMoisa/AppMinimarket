@@ -11,7 +11,7 @@ class LoginUseCase {
 class RegisterUseCase {
   final AuthRepository _repo;
   RegisterUseCase(this._repo);
-  Future<UserEntity> call({
+  Future<String?> call({
     required String nombreCompleto,
     required String email,
     required String password,
@@ -22,6 +22,20 @@ class RegisterUseCase {
     password: password,
     telefono: telefono,
   );
+}
+
+class VerifyEmailUseCase {
+  final AuthRepository _repo;
+  VerifyEmailUseCase(this._repo);
+
+  Future<String> call(String token) => _repo.verifyEmail(token);
+}
+
+class ResendVerificationUseCase {
+  final AuthRepository _repo;
+  ResendVerificationUseCase(this._repo);
+
+  Future<String> call(String email) => _repo.resendVerification(email);
 }
 
 class GetCurrentUserUseCase {

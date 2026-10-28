@@ -17,13 +17,13 @@ class AuthRemoteDataSource {
     return r.data['access_token'] as String;
   }
 
-  Future<void> register({
+  Future<String?> register({
     required String nombreCompleto,
     required String email,
     required String password,
     String? telefono,
   }) async {
-    await dio.post(
+    final response = await dio.post(
       ApiEndpoints.register,
       data: {
         'nombre_completo': nombreCompleto,
@@ -32,6 +32,30 @@ class AuthRemoteDataSource {
         'telefono': telefono,
       },
     );
+    final data = response.data;
+    return data is Map ? data['mensaje']?.toString() : null;
+  }
+
+  Future<String> verifyEmail(String token) async {
+    final response = await dio.post(
+      ApiEndpoints.verifyEmail,
+      data: {'token': token},
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ?? 'Correo verificado correctamente.'
+        : 'Correo verificado correctamente.';
+  }
+
+  Future<String> resendVerification(String email) async {
+    final response = await dio.post(
+      ApiEndpoints.resendVerification,
+      data: {'email': email},
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ?? 'Solicitud procesada.'
+        : 'Solicitud procesada.';
   }
 
   Future<UserModel> me() async {

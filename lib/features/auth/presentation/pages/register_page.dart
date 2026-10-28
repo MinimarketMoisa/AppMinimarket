@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/helpers.dart';
 import '../providers/auth_provider.dart';
+import 'email_verification_page.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -35,7 +36,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       _error = null;
     });
     try {
-      await ref
+      final message = await ref
           .read(authProvider.notifier)
           .register(
             nombreCompleto: _nombre.text.trim(),
@@ -43,7 +44,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             password: _pass.text,
             telefono: _tel.text.trim().isEmpty ? null : _tel.text.trim(),
           );
-      if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+      if (mounted) {
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => EmailVerificationPage(
+              initialEmail: _email.text.trim(),
+              registrationMessage: message,
+            ),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) setState(() => _error = errorMessage(e));
     } finally {

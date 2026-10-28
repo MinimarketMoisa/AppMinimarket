@@ -23,7 +23,9 @@ final dioProvider = Provider<Dio>((ref) {
         final token = await storage.read();
         final isPublicAuthRequest =
             options.path.endsWith('/auth/login') ||
-            options.path.endsWith('/auth/registro');
+            options.path.endsWith('/auth/registro') ||
+            options.path.endsWith('/auth/verificar-correo') ||
+            options.path.endsWith('/auth/reenviar-verificacion');
         if (token != null && !isPublicAuthRequest) {
           options.headers['Authorization'] = 'Bearer $token';
         }
