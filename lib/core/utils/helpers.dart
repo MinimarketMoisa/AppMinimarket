@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
-double toDouble(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+double toDouble(dynamic v) =>
+    v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
 String money(num v) => '\$${v.toStringAsFixed(2)}';
 
@@ -10,13 +11,19 @@ String fechaCorta(DateTime? d) {
   return '${t(d.day)}/${t(d.month)}/${d.year} ${t(d.hour)}:${t(d.minute)}';
 }
 
-String estadoLabel(String e) => const {
+String estadoLabel(String e) =>
+    const {
       'pendiente': 'Pendiente',
+      'preparado': 'Preparando',
       'preparando': 'Preparando',
+      'en_ruta': 'En camino',
       'listo': 'Listo para retirar',
       'en_camino': 'En camino',
       'entregado': 'Entregado',
       'cancelado': 'Cancelado',
+      'contra_entrega': 'Efectivo contra entrega',
+      'transferencia': 'Transferencia',
+      'pagado': 'Pagado',
     }[e] ??
     e;
 
@@ -29,7 +36,9 @@ String errorMessage(Object e) {
       if (det is String) return det;
       if (det is List && det.isNotEmpty) {
         final first = det.first;
-        if (first is Map && first['msg'] != null) return first['msg'].toString();
+        if (first is Map && first['msg'] != null) {
+          return first['msg'].toString();
+        }
       }
     }
     if (e.type == DioExceptionType.connectionError ||
@@ -38,5 +47,8 @@ String errorMessage(Object e) {
       return 'No se pudo conectar con el servidor';
     }
   }
-  return 'Ocurrió un error inesperado';
+  if (e is DioException && e.message != null) {
+    return e.message!;
+  }
+  return e.toString();
 }

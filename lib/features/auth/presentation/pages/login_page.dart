@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/config/app_config.dart';
 import '../../../../core/utils/helpers.dart';
 import '../providers/auth_provider.dart';
@@ -32,7 +33,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       _error = null;
     });
     try {
-      await ref.read(authProvider.notifier).login(_email.text.trim(), _pass.text);
+      await ref
+          .read(authProvider.notifier)
+          .login(_email.text.trim(), _pass.text);
     } catch (e) {
       if (mounted) setState(() => _error = errorMessage(e));
     } finally {
@@ -56,22 +59,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.storefront, size: 72, color: cs.primary),
-                    const SizedBox(height: 8),
-                    Text('Minimarket',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 28),
+                    Center(
+                      child: Image.asset(
+                        'assets/images/minimarket_logo.png',
+                        width: 280,
+                        height: 76,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'MiniMarket, ahorra tiempo y dinero',
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                          labelText: 'Correo', prefixIcon: Icon(Icons.email_outlined)),
-                      validator: (v) =>
-                          (v == null || !v.contains('@')) ? 'Ingresa un correo válido' : null,
+                        labelText: 'Correo',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      validator: (v) => (v == null || !v.contains('@'))
+                          ? 'Ingresa un correo válido'
+                          : null,
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -81,34 +88,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         labelText: 'Contraseña',
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
-                          icon: Icon(_hide ? Icons.visibility : Icons.visibility_off),
+                          icon: Icon(
+                            _hide ? Icons.visibility : Icons.visibility_off,
+                          ),
                           onPressed: () => setState(() => _hide = !_hide),
                         ),
                       ),
-                      validator: (v) => (v == null || v.length < 4) ? 'Mínimo 4 caracteres' : null,
+                      validator: (v) => (v == null || v.length < 4)
+                          ? 'Mínimo 4 caracteres'
+                          : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(_error!, style: TextStyle(color: cs.error), textAlign: TextAlign.center),
+                      Text(
+                        _error!,
+                        style: TextStyle(color: cs.error),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                     const SizedBox(height: 20),
                     FilledButton(
                       onPressed: _loading ? null : _submit,
                       child: _loading
                           ? const SizedBox(
-                              height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text('Iniciar sesión'),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.of(context)
-                          .push(MaterialPageRoute(builder: (_) => const RegisterPage())),
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const RegisterPage()),
+                      ),
                       child: const Text('¿No tienes cuenta? Regístrate'),
                     ),
-                    if (AppConfig.useMock) ...[
-                      const Divider(height: 32),
-                      
-                    ],
+                    if (AppConfig.useMock) ...[const Divider(height: 32)],
                   ],
                 ),
               ),

@@ -3,7 +3,7 @@ class UserEntity {
   final String nombreCompleto;
   final String email;
   final String? telefono;
-  final String rol; // cliente | repartidor | empleado
+  final String rol; // cliente | repartidor
 
   const UserEntity({
     required this.id,

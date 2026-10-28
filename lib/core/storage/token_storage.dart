@@ -6,23 +6,15 @@ class TokenStorage {
   final _storage = const FlutterSecureStorage();
 
   Future<String?> read() async {
-    try {
-      return await _storage.read(key: _key);
-    } catch (_) {
-      return null;
-    }
+    return _storage.read(key: _key);
   }
 
   Future<void> save(String token) async {
-    try {
-      await _storage.write(key: _key, value: token);
-    } catch (_) {}
+    await _storage.write(key: _key, value: token);
   }
 
   Future<void> clear() async {
-    try {
-      await _storage.delete(key: _key);
-    } catch (_) {}
+    await _storage.delete(key: _key);
   }
 }
 

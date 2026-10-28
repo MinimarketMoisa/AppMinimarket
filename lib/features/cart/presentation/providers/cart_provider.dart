@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../catalog/data/models/catalogo_models.dart';
 
 class CartItem {
@@ -19,7 +20,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
     } else {
       state = [
         for (var k = 0; k < state.length; k++)
-          if (k == i) CartItem(p, state[k].cantidad + 1) else state[k]
+          if (k == i) CartItem(p, state[k].cantidad + 1) else state[k],
       ];
     }
   }
@@ -32,7 +33,7 @@ class CartNotifier extends Notifier<List<CartItem>> {
     } else {
       state = [
         for (var k = 0; k < state.length; k++)
-          if (k == i) CartItem(p, state[k].cantidad - 1) else state[k]
+          if (k == i) CartItem(p, state[k].cantidad - 1) else state[k],
       ];
     }
   }
@@ -43,10 +44,14 @@ class CartNotifier extends Notifier<List<CartItem>> {
   void clear() => state = [];
 }
 
-final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(CartNotifier.new);
+final cartProvider = NotifierProvider<CartNotifier, List<CartItem>>(
+  CartNotifier.new,
+);
 
-final cartTotalProvider =
-    Provider<double>((ref) => ref.watch(cartProvider).fold(0.0, (s, e) => s + e.subtotal));
+final cartTotalProvider = Provider<double>(
+  (ref) => ref.watch(cartProvider).fold(0.0, (s, e) => s + e.subtotal),
+);
 
-final cartCountProvider =
-    Provider<int>((ref) => ref.watch(cartProvider).fold(0, (s, e) => s + e.cantidad));
+final cartCountProvider = Provider<int>(
+  (ref) => ref.watch(cartProvider).fold(0, (s, e) => s + e.cantidad),
+);

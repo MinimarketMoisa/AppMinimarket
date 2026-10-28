@@ -1,32 +1,40 @@
-/// Todas las rutas de la API en un solo lugar.
-/// Cuando tengas la API real, ajusta aquí los paths si difieren.
+/// Rutas de la API móvil desplegada.
 class ApiEndpoints {
-  // auth.py
+  // Autenticación
   static const login = '/auth/login'; // POST form: username(email), password
-  static const register = '/auth/register'; // POST json
+  static const register = '/auth/registro'; // POST json
   static const me = '/auth/me'; // GET
 
-  // catalogo.py
-  static const categorias = '/catalogo/categorias'; // GET
-  static const productos = '/catalogo/productos'; // GET ?categoria_id=&q=
+  // Catálogo
+  static const categorias = '/categorias'; // GET
+  static const productos = '/productos'; // GET ?id_categoria=&q=
+  static String disponibilidadProducto(int id) =>
+      '/productos/$id/disponibilidad'; // GET por sucursal
 
-  // direcciones.py
-  static const municipios = '/direcciones/municipios'; // GET
+  // Direcciones
+  static const municipios = '/municipios'; // GET
   static const direcciones = '/direcciones'; // GET, POST
+  static const sucursales = '/sucursales'; // GET
 
-  // inventario.py
-  static const inventario = '/inventario'; // GET
-  static String stock(int id) => '/inventario/$id'; // PATCH {stock_disponible}
-
-  // pedidos.py
-  static const pedidos = '/pedidos'; // POST crear, GET todos (empleado)
+  // Pedidos de cliente
+  static const pedidos = '/pedidos'; // POST
   static const misPedidos = '/pedidos/mis-pedidos'; // GET
-  static String cancelarPedido(int id) => '/pedidos/$id/cancelar'; // POST
   static String estadoPedido(int id) => '/pedidos/$id/estado'; // PATCH {estado}
+  static String seguimientoPedido(int id) => '/pedidos/$id/seguimiento'; // GET
+  static String seguimientoEnVivo(int id) =>
+      '/pedidos/$id/ws/seguimiento'; // WebSocket
+  static String enviarFactura(int id) => '/pedidos/$id/enviar-factura'; // POST
+  static String denunciarRepartidor(int id) =>
+      '/pedidos/$id/denunciar'; // POST {motivo}
 
-  // repartidor.py
-  static const repartidorPedidos = '/repartidor/pedidos'; // GET
-  static const repartidorEstado = '/repartidor/estado'; // PATCH {estado_operativo}
-  static const repartidorUbicacion = '/repartidor/ubicacion'; // POST {latitud, longitud}
-  static String completarEntrega(int id) => '/repartidor/pedidos/$id/completar'; // POST
+  // Repartidor
+  static const repartidorEntrante = '/repartidor/pedido-entrante'; // GET
+  static const repartidorPedidos = '/repartidor/mis-entregas'; // GET
+  static String aceptarPedidoRepartidor(int id) =>
+      '/repartidor/pedidos/$id/aceptar'; // POST
+  static String rechazarPedidoRepartidor(int id) =>
+      '/repartidor/pedidos/$id/rechazar'; // POST {motivo}
+  static const repartidorEstado = '/repartidor/estado'; // PATCH {estado}
+  static const repartidorUbicacion =
+      '/repartidor/ubicacion'; // PATCH {latitud, longitud}
 }

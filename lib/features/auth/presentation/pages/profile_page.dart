@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../addresses/presentation/pages/addresses_page.dart';
 import '../providers/auth_provider.dart';
 
@@ -17,8 +18,11 @@ class ProfilePage extends ConsumerWidget {
           const CircleAvatar(radius: 40, child: Icon(Icons.person, size: 40)),
           const SizedBox(height: 12),
           Center(
-              child: Text(user?.nombreCompleto ?? '',
-                  style: Theme.of(context).textTheme.titleLarge)),
+            child: Text(
+              user?.nombreCompleto ?? '',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
           Center(child: Text(user?.email ?? '')),
           if (user?.telefono != null) Center(child: Text(user!.telefono!)),
           const SizedBox(height: 16),
@@ -33,7 +37,12 @@ class ProfilePage extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Cerrar sesión'),
-            onTap: () => ref.read(authProvider.notifier).logout(),
+            onTap: () async {
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) {
+                Navigator.of(context).popUntil((route) => route.isFirst);
+              }
+            },
           ),
         ],
       ),

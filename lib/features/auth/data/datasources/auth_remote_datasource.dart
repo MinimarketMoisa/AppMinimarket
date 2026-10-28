@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+
 import '../../../../core/network/api_endpoints.dart';
 import '../models/user_model.dart';
 
@@ -22,12 +23,15 @@ class AuthRemoteDataSource {
     required String password,
     String? telefono,
   }) async {
-    await dio.post(ApiEndpoints.register, data: {
-      'nombre_completo': nombreCompleto,
-      'email': email,
-      'password': password,
-      'telefono': telefono,
-    });
+    await dio.post(
+      ApiEndpoints.register,
+      data: {
+        'nombre_completo': nombreCompleto,
+        'email': email,
+        'password': password,
+        'telefono': telefono,
+      },
+    );
   }
 
   Future<UserModel> me() async {

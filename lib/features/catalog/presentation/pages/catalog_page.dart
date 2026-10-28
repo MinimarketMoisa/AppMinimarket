@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/utils/helpers.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../providers/catalog_provider.dart';
@@ -26,7 +27,8 @@ class CatalogPage extends ConsumerWidget {
                 prefixIcon: Icon(Icons.search),
                 isDense: true,
               ),
-              onSubmitted: (v) => ref.read(searchProvider.notifier).state = v.trim(),
+              onSubmitted: (v) =>
+                  ref.read(searchProvider.notifier).state = v.trim(),
             ),
           ),
           SizedBox(
@@ -36,14 +38,19 @@ class CatalogPage extends ConsumerWidget {
               error: (_, __) => const SizedBox(),
               data: (cats) => ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 children: [
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: ChoiceChip(
                       label: const Text('Todos'),
                       selected: selected == null,
-                      onSelected: (_) => ref.read(selectedCategoriaProvider.notifier).state = null,
+                      onSelected: (_) =>
+                          ref.read(selectedCategoriaProvider.notifier).state =
+                              null,
                     ),
                   ),
                   for (final c in cats)
@@ -53,7 +60,8 @@ class CatalogPage extends ConsumerWidget {
                         label: Text(c.nombre),
                         selected: selected == c.id,
                         onSelected: (_) =>
-                            ref.read(selectedCategoriaProvider.notifier).state = c.id,
+                            ref.read(selectedCategoriaProvider.notifier).state =
+                                c.id,
                       ),
                     ),
                 ],
@@ -64,12 +72,16 @@ class CatalogPage extends ConsumerWidget {
             child: productos.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Text(errorMessage(e)),
-                  TextButton(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(errorMessage(e)),
+                    TextButton(
                       onPressed: () => ref.invalidate(productosProvider),
-                      child: const Text('Reintentar')),
-                ]),
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
+                ),
               ),
               data: (list) => list.isEmpty
                   ? const Center(child: Text('No se encontraron productos'))
@@ -77,12 +89,13 @@ class CatalogPage extends ConsumerWidget {
                       onRefresh: () async => ref.invalidate(productosProvider),
                       child: GridView.builder(
                         padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          childAspectRatio: 0.72,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithMaxCrossAxisExtent(
+                              maxCrossAxisExtent: 220,
+                              childAspectRatio: 0.72,
+                              crossAxisSpacing: 10,
+                              mainAxisSpacing: 10,
+                            ),
                         itemCount: list.length,
                         itemBuilder: (_, i) => ProductCard(
                           producto: list[i],
@@ -90,9 +103,12 @@ class CatalogPage extends ConsumerWidget {
                             ref.read(cartProvider.notifier).add(list[i]);
                             ScaffoldMessenger.of(context)
                               ..hideCurrentSnackBar()
-                              ..showSnackBar(SnackBar(
+                              ..showSnackBar(
+                                SnackBar(
                                   duration: const Duration(seconds: 1),
-                                  content: Text('${list[i].nombre} agregado')));
+                                  content: Text('${list[i].nombre} agregado'),
+                                ),
+                              );
                           },
                         ),
                       ),

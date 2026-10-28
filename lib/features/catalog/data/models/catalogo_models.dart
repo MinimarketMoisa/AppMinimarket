@@ -6,8 +6,29 @@ class Categoria {
   final String? descripcion;
   const Categoria({required this.id, required this.nombre, this.descripcion});
 
-  factory Categoria.fromJson(Map<String, dynamic> j) =>
-      Categoria(id: j['id'], nombre: j['nombre'] ?? '', descripcion: j['descripcion']);
+  factory Categoria.fromJson(Map<String, dynamic> j) => Categoria(
+    id: j['id_categoria'] ?? j['id'],
+    nombre: j['nombre'] ?? '',
+    descripcion: j['descripcion'],
+  );
+}
+
+class Sucursal {
+  final int id;
+  final String nombre;
+  final String direccion;
+
+  const Sucursal({
+    required this.id,
+    required this.nombre,
+    required this.direccion,
+  });
+
+  factory Sucursal.fromJson(Map<String, dynamic> j) => Sucursal(
+    id: j['id_sucursal'] ?? j['id'],
+    nombre: j['nombre'] ?? '',
+    direccion: j['direccion'] ?? '',
+  );
 }
 
 class Producto {
@@ -32,13 +53,32 @@ class Producto {
   });
 
   factory Producto.fromJson(Map<String, dynamic> j) => Producto(
-        id: j['id'],
-        codigoBarras: j['codigo_barras'],
-        nombre: j['nombre'] ?? '',
-        descripcion: j['descripcion'],
-        precioBase: toDouble(j['precio_base']),
-        imagenUrl: j['imagen_url'],
-        activo: j['activo'] ?? true,
-        categoriaId: j['categoria_id'],
+    id: j['id_producto'] ?? j['id'],
+    codigoBarras: j['codigo_barras'],
+    nombre: j['nombre'] ?? '',
+    descripcion: j['descripcion'],
+    precioBase: toDouble(j['precio_base']),
+    imagenUrl: j['imagen_url'],
+    activo: j['activo'] ?? true,
+    categoriaId: j['id_categoria'] ?? j['categoria_id'],
+  );
+}
+
+class Disponibilidad {
+  final int sucursalId;
+  final String nombreSucursal;
+  final int stockDisponible;
+
+  const Disponibilidad({
+    required this.sucursalId,
+    required this.nombreSucursal,
+    required this.stockDisponible,
+  });
+
+  factory Disponibilidad.fromJson(Map<String, dynamic> json) =>
+      Disponibilidad(
+        sucursalId: json['id_sucursal'],
+        nombreSucursal: json['nombre_sucursal'] ?? '',
+        stockDisponible: json['stock_disponible'] ?? 0,
       );
 }

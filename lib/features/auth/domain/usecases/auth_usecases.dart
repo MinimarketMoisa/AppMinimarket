@@ -4,7 +4,8 @@ import '../repositories/auth_repository.dart';
 class LoginUseCase {
   final AuthRepository _repo;
   LoginUseCase(this._repo);
-  Future<UserEntity> call(String email, String password) => _repo.login(email, password);
+  Future<UserEntity> call(String email, String password) =>
+      _repo.login(email, password);
 }
 
 class RegisterUseCase {
@@ -15,9 +16,12 @@ class RegisterUseCase {
     required String email,
     required String password,
     String? telefono,
-  }) =>
-      _repo.register(
-          nombreCompleto: nombreCompleto, email: email, password: password, telefono: telefono);
+  }) => _repo.register(
+    nombreCompleto: nombreCompleto,
+    email: email,
+    password: password,
+    telefono: telefono,
+  );
 }
 
 class GetCurrentUserUseCase {

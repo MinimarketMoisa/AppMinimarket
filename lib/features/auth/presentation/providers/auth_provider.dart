@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/storage/token_storage.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
@@ -8,12 +9,16 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/auth_usecases.dart';
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepositoryImpl(
-      AuthRemoteDataSource(ref.read(dioProvider)),
-      ref.read(tokenStorageProvider),
-    ));
+final authRepositoryProvider = Provider<AuthRepository>(
+  (ref) => AuthRepositoryImpl(
+    AuthRemoteDataSource(ref.read(dioProvider)),
+    ref.read(tokenStorageProvider),
+  ),
+);
 
-final authProvider = AsyncNotifierProvider<AuthNotifier, UserEntity?>(AuthNotifier.new);
+final authProvider = AsyncNotifierProvider<AuthNotifier, UserEntity?>(
+  AuthNotifier.new,
+);
 
 class AuthNotifier extends AsyncNotifier<UserEntity?> {
   AuthRepository get _repo => ref.read(authRepositoryProvider);
@@ -34,7 +39,11 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     String? telefono,
   }) async {
     final user = await RegisterUseCase(_repo)(
-        nombreCompleto: nombreCompleto, email: email, password: password, telefono: telefono);
+      nombreCompleto: nombreCompleto,
+      email: email,
+      password: password,
+      telefono: telefono,
+    );
     state = AsyncData(user);
   }
 

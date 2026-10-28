@@ -10,10 +10,10 @@ class UserModel extends UserEntity {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> j) => UserModel(
-        id: j['id'],
-        nombreCompleto: j['nombre_completo'] ?? '',
-        email: j['email'] ?? '',
-        telefono: j['telefono'],
-        rol: j['rol'] ?? 'cliente',
-      );
+    id: j['id_usuario'] ?? j['id'],
+    nombreCompleto: j['nombre_completo'] ?? '',
+    email: j['email'] ?? '',
+    telefono: j['telefono'],
+    rol: (j['rol'] ?? 'cliente').toString().toLowerCase(),
+  );
 }

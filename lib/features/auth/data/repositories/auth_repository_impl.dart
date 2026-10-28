@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../../../core/storage/token_storage.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -12,7 +14,12 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<UserEntity> login(String email, String password) async {
     final token = await _remote.login(email, password);
     await _storage.save(token);
-    return _remote.me();
+    try {
+      return await _remote.me();
+    } catch (_) {
+      await _storage.clear();
+      rethrow;
+    }
   }
 
   @override
@@ -23,7 +30,11 @@ class AuthRepositoryImpl implements AuthRepository {
     String? telefono,
   }) async {
     await _remote.register(
-        nombreCompleto: nombreCompleto, email: email, password: password, telefono: telefono);
+      nombreCompleto: nombreCompleto,
+      email: email,
+      password: password,
+      telefono: telefono,
+    );
     return login(email, password);
   }
 
@@ -33,9 +44,12 @@ class AuthRepositoryImpl implements AuthRepository {
     if (token == null) return null;
     try {
       return await _remote.me();
-    } catch (_) {
-      await _storage.clear();
-      return null;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        await _storage.clear();
+        return null;
+      }
+      rethrow;
     }
   }
 
