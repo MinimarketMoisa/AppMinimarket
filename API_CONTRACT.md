@@ -3,7 +3,6 @@
 ## Configuración
 
 - API HTTPS: `https://minimarket-api.duckdns.org`
-- WebSocket: `wss://minimarket-api.duckdns.org`
 - JWT: `Authorization: Bearer <TOKEN_JWT>`
 - JSON: `Content-Type: application/json`
 - Inicio de sesión: `application/x-www-form-urlencoded`
@@ -31,14 +30,13 @@ sigue siendo responsable de autorizar las operaciones del rol.
 | Direcciones | GET/POST `/direcciones` | `id_municipio`, `detalle_direccion`, referencia y coordenadas opcionales |
 | Crear pedido | POST `/pedidos` | `items`, `tipo_entrega`, `metodo_pago`, `canal: "APP"` |
 | Historial | GET `/pedidos/mis-pedidos` | Pedidos del cliente |
-| Seguimiento REST | GET `/pedidos/{id}/seguimiento` | Sucursal, destino y repartidor |
-| Seguimiento en vivo | WS `/pedidos/{id}/ws/seguimiento?token=...` | JWT en query; el servidor debe validar formato y mensajes |
+| Seguimiento en vivo | GET `/pedidos/{id}/seguimiento` | Coordenadas de sucursal, destino y repartidor; la app consulta cada 5 s |
 | Reenviar factura | POST `/pedidos/{id}/enviar-factura` | Sin body |
 | Denunciar repartidor | POST `/pedidos/{id}/denunciar` | `{"motivo":"..."}` |
 | Pedido entrante | GET `/repartidor/pedido-entrante` | Pedido o `null` |
 | Aceptar / rechazar | POST `/repartidor/pedidos/{id}/aceptar`, `/repartidor/pedidos/{id}/rechazar` | Rechazo: `motivo` |
 | Entregas activas | GET `/repartidor/mis-entregas` | Pedidos asignados |
-| Ubicación | PATCH `/repartidor/ubicacion` | `latitud`, `longitud`; la app envía cada 8 s mientras el repartidor lo activa |
+| Ubicación | PATCH `/repartidor/ubicacion` | `latitud`, `longitud`; la app envía cada 5 s mientras el repartidor lo activa |
 | Disponibilidad | PATCH `/repartidor/estado` | `LIBRE` o `PENDIENTE` |
 | Estado del pedido | PATCH `/pedidos/{id}/estado` | `EN_RUTA` o `ENTREGADO` |
 
@@ -55,8 +53,8 @@ Si el correo no llega, se puede solicitar un reenvío desde esa pantalla. La
 entrega efectiva del correo depende de la configuración SMTP/correo del backend.
 `ProductoOut` no
 declara stock; la app obtiene ese dato desde la ruta de disponibilidad por
-sucursal. Las rutas WebSocket no aparecen en OpenAPI y deben probarse con el
-backend, incluidos autenticación y formato de los mensajes. Durante la
+sucursal. El seguimiento móvil usa la ruta REST documentada y no depende de
+WebSocket, que no está publicado en el OpenAPI desplegado. Durante la
 comprobación de integración, las peticiones GET públicas a `/productos` y
 `/categorias` respondieron HTTP 502; se requiere revalidarlas cuando el
 servicio esté disponible.

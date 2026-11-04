@@ -24,8 +24,6 @@ class ApiEndpoints {
   static const misPedidos = '/pedidos/mis-pedidos'; // GET
   static String estadoPedido(int id) => '/pedidos/$id/estado'; // PATCH {estado}
   static String seguimientoPedido(int id) => '/pedidos/$id/seguimiento'; // GET
-  static String seguimientoEnVivo(int id) =>
-      '/pedidos/$id/ws/seguimiento'; // WebSocket
   static String enviarFactura(int id) => '/pedidos/$id/enviar-factura'; // POST
   static String denunciarRepartidor(int id) =>
       '/pedidos/$id/denunciar'; // POST {motivo}

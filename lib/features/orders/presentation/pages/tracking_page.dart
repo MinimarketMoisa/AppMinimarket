@@ -1,15 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
-import '../../../../core/config/app_config.dart';
-import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/storage/token_storage.dart';
 import '../../../../core/utils/helpers.dart';
 import '../providers/orders_provider.dart';
+import '../widgets/tracking_map.dart';
 
 class TrackingPage extends ConsumerStatefulWidget {
   const TrackingPage({super.key, required this.pedidoId});
@@ -20,120 +16,72 @@ class TrackingPage extends ConsumerStatefulWidget {
   ConsumerState<TrackingPage> createState() => _TrackingPageState();
 }
 
-class _TrackingPageState extends ConsumerState<TrackingPage> {
+class _TrackingPageState extends ConsumerState<TrackingPage>
+    with WidgetsBindingObserver {
   Map<String, dynamic>? _tracking;
-  WebSocketChannel? _channel;
-  StreamSubscription<dynamic>? _subscription;
-  String _connectionStatus = 'Conectando al seguimiento en vivo...';
+  Timer? _refreshTimer;
   Object? _loadError;
   bool _loading = true;
+  bool _requestInProgress = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTracking();
-    _connectToLiveTracking();
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadTracking(showLoading: false);
+      _startPeriodicRefresh();
+    } else {
+      _refreshTimer?.cancel();
+      _refreshTimer = null;
+    }
+  }
+
+  void _startPeriodicRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _loadTracking(showLoading: false),
+    );
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
-    _channel?.sink.close();
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadTracking() async {
-    setState(() {
-      _loading = true;
-      _loadError = null;
-    });
+  Future<void> _loadTracking({bool showLoading = true}) async {
+    if (_requestInProgress) return;
+    _requestInProgress = true;
+    if (showLoading && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
     try {
       final tracking = await ref
           .read(ordersRepositoryProvider)
           .seguimiento(widget.pedidoId);
-      if (mounted) setState(() => _tracking = tracking);
+      if (mounted) {
+        setState(() {
+          _tracking = tracking;
+          _loadError = null;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _loadError = error);
     } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _connectToLiveTracking() async {
-    try {
-      if (AppConfig.useMock) {
-        setState(
-          () => _connectionStatus =
-              'El seguimiento en vivo no está disponible en modo simulado',
-        );
-        return;
-      }
-      await _subscription?.cancel();
-      await _channel?.sink.close();
-      final token = await ref.read(tokenStorageProvider).read();
-      if (token == null) {
-        throw StateError('No se encontró una sesión activa');
-      }
-      final baseUri = Uri.parse(AppConfig.baseUrl);
-      final socketUri = baseUri.replace(
-        scheme: baseUri.scheme == 'https' ? 'wss' : 'ws',
-        path: ApiEndpoints.seguimientoEnVivo(widget.pedidoId),
-        queryParameters: {'token': token},
-      );
-      final channel = WebSocketChannel.connect(socketUri);
-      _channel = channel;
-      await channel.ready;
-      if (!mounted) {
-        await channel.sink.close();
-        return;
-      }
-      setState(() => _connectionStatus = 'Seguimiento en vivo conectado');
-      _subscription = channel.stream.listen(
-        _onLiveUpdate,
-        onError: (Object error, StackTrace stackTrace) {
-          if (mounted) {
-            setState(
-              () => _connectionStatus =
-                  'Seguimiento en vivo desconectado: ${errorMessage(error)}',
-            );
-          }
-        },
-        onDone: () {
-          if (mounted) {
-            setState(
-              () => _connectionStatus = 'Seguimiento en vivo desconectado',
-            );
-          }
-        },
-      );
-    } catch (error) {
-      if (mounted) {
-        setState(
-          () => _connectionStatus =
-              'No se pudo conectar al seguimiento en vivo: ${errorMessage(error)}',
-        );
-      }
-    }
-  }
-
-  void _onLiveUpdate(dynamic message) {
-    if (!mounted) return;
-    Object? decoded;
-    try {
-      decoded = jsonDecode(message.toString());
-    } on FormatException {
-      decoded = {'mensaje': message.toString()};
-    }
-    final current = _tracking ?? <String, dynamic>{};
-    if (decoded is Map<String, dynamic>) {
-      final update = decoded;
-      setState(() {
-        _tracking = {...current, ...update};
-      });
-    } else {
-      setState(() {
-        _tracking = {...current, 'mensaje': decoded};
-      });
+      _requestInProgress = false;
+      if (mounted && showLoading) setState(() => _loading = false);
     }
   }
 
@@ -211,30 +159,25 @@ class _TrackingPageState extends ConsumerState<TrackingPage> {
                 children: [
                   ListTile(
                     leading: Icon(
-                      Icons.circle,
+                      Icons.update,
                       size: 12,
-                      color: _connectionStatus.startsWith(
-                        'Seguimiento en vivo conectado',
-                      )
-                          ? Colors.green
-                          : Colors.orange,
+                      color: _loadError == null ? Colors.green : Colors.orange,
                     ),
-                    title: Text(_connectionStatus),
-                    trailing: _connectionStatus.startsWith(
-                      'Seguimiento en vivo conectado',
-                    )
-                        ? null
-                        : IconButton(
-                            tooltip: 'Reconectar',
-                            onPressed: _connectToLiveTracking,
-                            icon: const Icon(Icons.refresh),
-                          ),
+                    title: const Text('Actualización automática cada 5 s'),
                     subtitle: tracking?['estado'] == null
                         ? null
                         : Text(
                             'Estado: ${estadoLabel(tracking!['estado'].toString().toLowerCase())}',
                           ),
+                    trailing: IconButton(
+                      tooltip: 'Actualizar ahora',
+                      onPressed: _requestInProgress
+                          ? null
+                          : () => _loadTracking(showLoading: false),
+                      icon: const Icon(Icons.refresh),
+                    ),
                   ),
+                  TrackingMap(tracking: tracking),
                   _section('Sucursal de origen', tracking?['sucursal']),
                   _section('Destino', tracking?['destino']),
                   _section('Repartidor', tracking?['repartidor']),

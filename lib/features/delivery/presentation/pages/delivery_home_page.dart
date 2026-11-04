@@ -80,7 +80,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
       if (!mounted) return;
       setState(() => _sharingLocation = true);
       _locationTimer = Timer.periodic(
-        const Duration(seconds: 8),
+        const Duration(seconds: 5),
         (_) => _sendLocation(),
       );
     } catch (error) {
@@ -95,7 +95,12 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
       if (!await Geolocator.isLocationServiceEnabled()) {
         throw Exception('Los servicios de ubicación están desactivados');
       }
-      final position = await Geolocator.getCurrentPosition();
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
       await ref
           .read(deliveryRepositoryProvider)
           .actualizarUbicacion(position.latitude, position.longitude);
