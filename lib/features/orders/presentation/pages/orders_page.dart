@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/helpers.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 import '../widgets/pedido_card.dart';
 import 'tracking_page.dart';
@@ -41,6 +43,34 @@ class OrdersPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(authProvider).value == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Mis pedidos')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.receipt_long_outlined, size: 56),
+                const SizedBox(height: 12),
+                const Text(
+                  'Inicia sesión para consultar tus pedidos.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginPage()),
+                  ),
+                  child: const Text('Iniciar sesión'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final pedidos = ref.watch(misPedidosProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Mis pedidos')),

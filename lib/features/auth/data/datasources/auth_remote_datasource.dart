@@ -36,6 +36,30 @@ class AuthRemoteDataSource {
     return data is Map ? data['mensaje']?.toString() : null;
   }
 
+  Future<String> applyAsCourier({
+    required String nombreCompleto,
+    required String email,
+    required String password,
+    required String telefono,
+    String? placaVehiculo,
+  }) async {
+    final response = await dio.post(
+      ApiEndpoints.solicitudRepartidor,
+      data: {
+        'nombre_completo': nombreCompleto,
+        'email': email,
+        'password': password,
+        'telefono': telefono,
+        'placa_vehiculo': placaVehiculo,
+      },
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ??
+              'Solicitud enviada para revisión.'
+        : 'Solicitud enviada para revisión.';
+  }
+
   Future<String> verifyEmail(String token) async {
     final response = await dio.post(
       ApiEndpoints.verifyEmail,

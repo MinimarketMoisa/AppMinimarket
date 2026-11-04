@@ -324,11 +324,21 @@ class MockApiInterceptor extends Interceptor {
       _pendingVerificationEmail = user.first['email'] as String;
       return {'mensaje': 'Correo de verificación reenviado.'};
     }
+    if (path == ApiEndpoints.solicitudRepartidor && m == 'POST') {
+      final email = (body['email'] as String? ?? '').trim().toLowerCase();
+      if (_users.any(
+        (user) => (user['email'] as String).toLowerCase() == email,
+      )) {
+        throw _MockError(409, 'Ese correo ya tiene una cuenta');
+      }
+      return {
+        'mensaje':
+            'Solicitud recibida. La empresa revisará tus datos antes de habilitar el acceso.',
+        'id_solicitud': 1,
+      };
+    }
 
     final me = _currentUser(o);
-    if (me == null) throw _MockError(401, 'No autenticado');
-
-    if (path == ApiEndpoints.me) return _publicUser(me);
     if (path == ApiEndpoints.categorias) return _categorias;
     if (path == ApiEndpoints.productos) {
       final cat = int.tryParse(
@@ -364,8 +374,10 @@ class MockApiInterceptor extends Interceptor {
         };
       }).toList();
     }
-    if (path == ApiEndpoints.municipios) return _municipios;
     if (path == ApiEndpoints.sucursales) return _sucursales;
+    if (me == null) throw _MockError(401, 'No autenticado');
+    if (path == ApiEndpoints.me) return _publicUser(me);
+    if (path == ApiEndpoints.municipios) return _municipios;
     if (path == ApiEndpoints.direcciones) {
       if (m == 'POST') {
         final d = {

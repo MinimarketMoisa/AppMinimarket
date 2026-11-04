@@ -38,6 +38,21 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<String> applyAsCourier({
+    required String nombreCompleto,
+    required String email,
+    required String password,
+    required String telefono,
+    String? placaVehiculo,
+  }) => _remote.applyAsCourier(
+    nombreCompleto: nombreCompleto,
+    email: email,
+    password: password,
+    telefono: telefono,
+    placaVehiculo: placaVehiculo,
+  );
+
+  @override
   Future<String> verifyEmail(String token) => _remote.verifyEmail(token);
 
   @override

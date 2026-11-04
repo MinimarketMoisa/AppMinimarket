@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/utils/helpers.dart';
 import '../providers/auth_provider.dart';
+import 'driver_application_page.dart';
 import 'email_verification_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.driverLogin = false});
+
+  final bool driverLogin;
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
 }
@@ -40,11 +43,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await ref
           .read(authProvider.notifier)
           .login(_email.text.trim(), _pass.text);
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } catch (e) {
       if (mounted) {
         setState(() {
           _error = errorMessage(e);
-          _needsVerification = e is DioException &&
+          _needsVerification =
+              e is DioException &&
               (e.response?.statusCode == 403 ||
                   (e.response?.data is Map &&
                       '${(e.response!.data as Map)['detail'] ?? ''}'
@@ -61,6 +68,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          widget.driverLogin ? 'Acceso de repartidor' : 'Iniciar sesión',
+        ),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -83,6 +95,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
+                    if (widget.driverLogin) ...[
+                      const Text(
+                        'Acceso disponible para cuentas de repartidor '
+                        'aprobadas por la empresa.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     TextFormField(
                       controller: _email,
                       keyboardType: TextInputType.emailAddress,
@@ -132,11 +152,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             )
                           : const Text('Iniciar sesión'),
                     ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const RegisterPage()),
+                    if (!widget.driverLogin)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const RegisterPage(),
+                          ),
+                        ),
+                        child: const Text('Crear cuenta de cliente'),
                       ),
-                      child: const Text('¿No tienes cuenta? Regístrate'),
+                    TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const DriverApplicationPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.delivery_dining),
+                      label: const Text('Solicitar acceso como repartidor'),
                     ),
                     if (_needsVerification)
                       TextButton.icon(

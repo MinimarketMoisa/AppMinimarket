@@ -22,6 +22,9 @@ sigue siendo responsable de autorizar las operaciones del rol.
 |---|---|---|
 | Iniciar sesión | POST `/auth/login` | Form: `username`, `password` |
 | Registrar cliente | POST `/auth/registro` | `nombre_completo`, `email`, `password`, `telefono` opcional; requiere verificación antes de iniciar sesión |
+| Postularse como repartidor | POST `/repartidor/solicitudes` | `nombre_completo`, `email`, `password`, `telefono`, `placa_vehiculo` opcional; acceso pendiente de aprobación |
+| Revisar postulaciones | GET `/repartidor/solicitudes` | Solo ADMIN; lista postulaciones pendientes |
+| Aprobar / rechazar postulación | PATCH `/repartidor/solicitudes/{id}/aprobar`, POST `/repartidor/solicitudes/{id}/rechazar` | Solo ADMIN; al aprobar crea el usuario y perfil de repartidor |
 | Verificar correo | POST `/auth/verificar-correo` | JSON: `{"token":"..."}` |
 | Reenviar verificación | POST `/auth/reenviar-verificacion` | JSON: `{"email":"..."}` |
 | Usuario autenticado | GET `/auth/me` | `id_usuario`, `nombre_completo`, `email`, `rol` |
@@ -45,6 +48,11 @@ El pedido se crea con `items: [{"id_producto": 1, "cantidad": 2}]`,
 "CONTRA_ENTREGA"` o `"TRANSFERENCIA"` y `canal: "APP"`. Domicilio usa
 `id_direccion`; retiro usa `id_sucursal`.
 
+El catálogo y las sucursales son públicos para permitir la exploración como
+invitado. La creación del pedido, direcciones e historial requieren iniciar
+sesión. El registro público crea únicamente clientes; las postulaciones de
+repartidor no obtienen acceso hasta que un administrador las aprueba.
+
 ## Validación contra la API desplegada
 
 La app se ajusta al OpenAPI publicado por el host desplegado. El flujo de
@@ -57,7 +65,9 @@ sucursal. El seguimiento móvil usa la ruta REST documentada y no depende de
 WebSocket, que no está publicado en el OpenAPI desplegado. Durante la
 comprobación de integración, las peticiones GET públicas a `/productos` y
 `/categorias` respondieron HTTP 502; se requiere revalidarlas cuando el
-servicio esté disponible.
+servicio esté disponible. La API desplegada aún debe actualizarse con las
+rutas de postulación y revisión de repartidores documentadas arriba antes de
+habilitar ese flujo en producción.
 
 ## Desarrollo local
 

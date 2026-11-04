@@ -27,7 +27,8 @@ class _ClientShellState extends ConsumerState<ClientShell> {
       }
     });
     final count = ref.watch(cartCountProvider);
-    final isRepartidor = ref.watch(authProvider).value?.rol == 'repartidor';
+    final user = ref.watch(authProvider).value;
+    final isRepartidor = user?.rol == 'repartidor';
     return Scaffold(
       body: IndexedStack(
         index: _index,
@@ -67,9 +68,9 @@ class _ClientShellState extends ConsumerState<ClientShell> {
             icon: Icon(Icons.receipt_long_outlined),
             label: 'Pedidos',
           ),
-          const NavigationDestination(
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
-            label: 'Perfil',
+            label: user == null ? 'Cuenta' : 'Perfil',
           ),
           if (isRepartidor)
             const NavigationDestination(

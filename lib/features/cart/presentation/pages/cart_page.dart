@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/helpers.dart';
+import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../catalog/presentation/providers/catalog_provider.dart';
 import '../../../addresses/presentation/pages/addresses_page.dart';
 import '../../../addresses/presentation/providers/addresses_provider.dart';
@@ -23,6 +25,12 @@ class _CartPageState extends ConsumerState<CartPage> {
   bool _loading = false;
 
   Future<void> _confirmar() async {
+    if (ref.read(authProvider).value == null) {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const LoginPage()));
+      return;
+    }
     final items = ref.read(cartProvider);
     if (_entrega == 'domicilio' && _dirId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -71,10 +79,63 @@ class _CartPageState extends ConsumerState<CartPage> {
   @override
   Widget build(BuildContext context) {
     final items = ref.watch(cartProvider);
+    final user = ref.watch(authProvider).value;
     if (items.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Carrito')),
         body: const Center(child: Text('Tu carrito está vacío')),
+      );
+    }
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Carrito')),
+        body: ListView(
+          padding: const EdgeInsets.all(12),
+          children: [
+            for (final item in items)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.producto.nombre),
+                subtitle: Text(
+                  '${money(item.producto.precioBase)} c/u · '
+                  '${money(item.subtotal)}',
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () => ref
+                          .read(cartProvider.notifier)
+                          .decrement(item.producto),
+                    ),
+                    Text('${item.cantidad}'),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      onPressed: () =>
+                          ref.read(cartProvider.notifier).add(item.producto),
+                    ),
+                  ],
+                ),
+              ),
+            const Divider(),
+            const SizedBox(height: 12),
+            const Text(
+              'Tus productos permanecen en el carrito mientras sigues en la app. '
+              'Inicia sesión o crea una cuenta para elegir la entrega y '
+              'confirmar el pedido.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              icon: const Icon(Icons.login),
+              label: const Text('Iniciar sesión para continuar'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const LoginPage()),
+              ),
+            ),
+          ],
+        ),
       );
     }
     final subtotal = ref.watch(cartTotalProvider);

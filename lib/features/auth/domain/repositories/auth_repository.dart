@@ -8,6 +8,13 @@ abstract class AuthRepository {
     required String password,
     String? telefono,
   });
+  Future<String> applyAsCourier({
+    required String nombreCompleto,
+    required String email,
+    required String password,
+    required String telefono,
+    String? placaVehiculo,
+  });
   Future<String> verifyEmail(String token);
   Future<String> resendVerification(String email);
   Future<UserEntity?> currentUser();

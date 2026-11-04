@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
 import 'core/utils/helpers.dart';
-import 'features/auth/presentation/pages/login_page.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/delivery/presentation/pages/delivery_home_page.dart';
 import 'features/shell/client_shell.dart';
@@ -57,7 +56,7 @@ class _Root extends ConsumerWidget {
             ),
           ),
           data: (user) {
-            if (user == null) return const LoginPage();
+            if (user == null) return const ClientShell();
             switch (user.rol) {
               case 'repartidor':
                 return const DeliveryHomePage();

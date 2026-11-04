@@ -46,6 +46,20 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     );
   }
 
+  Future<String> applyAsCourier({
+    required String nombreCompleto,
+    required String email,
+    required String password,
+    required String telefono,
+    String? placaVehiculo,
+  }) => ApplyAsCourierUseCase(_repo)(
+    nombreCompleto: nombreCompleto,
+    email: email,
+    password: password,
+    telefono: telefono,
+    placaVehiculo: placaVehiculo,
+  );
+
   Future<String> verifyEmail(String token) =>
       VerifyEmailUseCase(_repo)(token);
 

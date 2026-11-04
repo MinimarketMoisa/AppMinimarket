@@ -24,6 +24,25 @@ class RegisterUseCase {
   );
 }
 
+class ApplyAsCourierUseCase {
+  final AuthRepository _repo;
+  ApplyAsCourierUseCase(this._repo);
+
+  Future<String> call({
+    required String nombreCompleto,
+    required String email,
+    required String password,
+    required String telefono,
+    String? placaVehiculo,
+  }) => _repo.applyAsCourier(
+    nombreCompleto: nombreCompleto,
+    email: email,
+    password: password,
+    telefono: telefono,
+    placaVehiculo: placaVehiculo,
+  );
+}
+
 class VerifyEmailUseCase {
   final AuthRepository _repo;
   VerifyEmailUseCase(this._repo);

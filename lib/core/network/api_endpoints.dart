@@ -38,4 +38,5 @@ class ApiEndpoints {
   static const repartidorEstado = '/repartidor/estado'; // PATCH {estado}
   static const repartidorUbicacion =
       '/repartidor/ubicacion'; // PATCH {latitud, longitud}
+  static const solicitudRepartidor = '/repartidor/solicitudes'; // POST público
 }
