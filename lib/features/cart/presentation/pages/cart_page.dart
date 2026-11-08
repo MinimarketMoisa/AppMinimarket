@@ -162,6 +162,14 @@ class _CartPageState extends ConsumerState<CartPage> {
     }
     final user = ref.read(authProvider).value;
     final items = ref.read(cartProvider);
+    final subtotal = items.fold<double>(
+      0,
+      (total, item) => total + item.subtotal,
+    );
+    final metodoPago =
+        requierePagoConTarjeta(subtotal) || _pedidoTarjetaPendiente != null
+        ? 'tarjeta'
+        : _pago;
     if (_entrega == 'domicilio' && _dirId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Selecciona una dirección de entrega')),
@@ -174,11 +182,11 @@ class _CartPageState extends ConsumerState<CartPage> {
       );
       return;
     }
-    if (_pago == 'tarjeta' && !_validarTarjeta()) return;
+    if (metodoPago == 'tarjeta' && !_validarTarjeta()) return;
     setState(() => _loading = true);
     try {
       final repository = ref.read(ordersRepositoryProvider);
-      if (_pago == 'tarjeta') {
+      if (metodoPago == 'tarjeta') {
         final pedidoId =
             _pedidoTarjetaPendiente ??
             (await repository.crear(
@@ -189,7 +197,7 @@ class _CartPageState extends ConsumerState<CartPage> {
               direccionId: _entrega == 'domicilio' ? _dirId : null,
               sucursalId: _entrega == 'retiro' ? _sucursalId : null,
               tipoEntrega: _entrega,
-              metodoPago: _pago,
+              metodoPago: metodoPago,
             )).id;
         _pedidoTarjetaPendiente = pedidoId;
         final result = await repository.simularPagoWompi(
@@ -464,6 +472,9 @@ class _CartPageState extends ConsumerState<CartPage> {
       );
     }
     final subtotal = ref.watch(cartTotalProvider);
+    final requiereTarjeta =
+        requierePagoConTarjeta(subtotal) || _pedidoTarjetaPendiente != null;
+    final metodoPagoSeleccionado = requiereTarjeta ? 'tarjeta' : _pago;
     final dirs = ref.watch(direccionesProvider);
     final sucursales = ref.watch(sucursalesProvider);
 
@@ -601,24 +612,60 @@ class _CartPageState extends ConsumerState<CartPage> {
                   ),
                   const SizedBox(height: 12),
                   SegmentedButton<String>(
-                    segments: const [
+                    segments: [
                       ButtonSegment(
                         value: 'contra_entrega',
-                        label: Text('Efectivo'),
-                        icon: Icon(Icons.payments_outlined),
+                        label: Text(
+                          requiereTarjeta
+                              ? 'Efectivo no disponible'
+                              : 'Efectivo',
+                        ),
+                        icon: const Icon(Icons.payments_outlined),
+                        enabled: !requiereTarjeta,
                       ),
-                      ButtonSegment(
+                      const ButtonSegment(
                         value: 'tarjeta',
                         label: Text('Crédito/débito'),
                         icon: Icon(Icons.credit_card),
                       ),
                     ],
-                    selected: {_pago},
+                    selected: {metodoPagoSeleccionado},
                     onSelectionChanged: _pedidoTarjetaPendiente == null
                         ? (s) => setState(() => _pago = s.first)
                         : null,
                   ),
-                  if (_pago == 'tarjeta') ...[
+                  if (requierePagoConTarjeta(subtotal))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.verified_user_outlined,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer,
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Text(
+                                  'Por seguridad, las compras mayores a '
+                                  '\$50.00 deben pagarse con tarjeta.',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (metodoPagoSeleccionado == 'tarjeta') ...[
                     const SizedBox(height: 12),
                     if (_pedidoTarjetaPendiente != null)
                       const Text(
@@ -761,7 +808,7 @@ class _CartPageState extends ConsumerState<CartPage> {
               child: Text(
                 _pedidoTarjetaPendiente != null
                     ? 'Reintentar pago'
-                    : _pago == 'tarjeta'
+                    : metodoPagoSeleccionado == 'tarjeta'
                     ? 'Pagar con tarjeta'
                     : 'Confirmar pedido',
               ),

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../catalog/data/models/catalogo_models.dart';
 
+bool requierePagoConTarjeta(double subtotal) => subtotal > 50;
+
 class CartItem {
   final Producto producto;
   final int cantidad;
