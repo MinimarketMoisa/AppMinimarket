@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/utils/helpers.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
-import '../../data/models/catalogo_models.dart';
 import '../providers/catalog_provider.dart';
 import '../widgets/product_card.dart';
 
@@ -17,155 +15,48 @@ class CatalogPage extends ConsumerStatefulWidget {
 
 class _CatalogPageState extends ConsumerState<CatalogPage> {
   static const _pageSize = 24;
-  final _scrollController = ScrollController();
-  List<Producto> _products = [];
-  String? _loadedFilter;
-  String? _paginationError;
-  int _requestGeneration = 0;
-  int? _activeCategory;
-  String _activeQuery = '';
-  String _activeFilterKey = '';
-  bool _hasMore = true;
-  bool _loadingMore = false;
+  int _pageIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
+  void _resetPage() {
+    if (_pageIndex == 0) return;
+    setState(() => _pageIndex = 0);
   }
 
-  @override
-  void dispose() {
-    _scrollController
-      ..removeListener(_onScroll)
-      ..dispose();
-    super.dispose();
-  }
-
-  void _resetPagination() {
-    _requestGeneration++;
-    setState(() {
-      _products = [];
-      _loadedFilter = null;
-      _paginationError = null;
-      _hasMore = true;
-      _loadingMore = false;
-    });
-  }
-
-  void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    if (_scrollController.position.extentAfter < 500 &&
-        _loadedFilter == _activeFilterKey) {
-      _loadMore(
-        categoryId: _activeCategory,
-        query: _activeQuery,
-        filterKey: _activeFilterKey,
-      );
-    }
-  }
-
-  Future<void> _loadMore({
-    List<Producto>? firstPage,
-    required int? categoryId,
-    required String query,
-    required String filterKey,
-  }) async {
-    if (_loadingMore || !_hasMore || !mounted) return;
-    final generation = _requestGeneration;
-    setState(() {
-      _loadingMore = true;
-      _paginationError = null;
-      if (_loadedFilter != filterKey && firstPage != null) {
-        _products = firstPage;
-        _loadedFilter = filterKey;
-        _hasMore = firstPage.length == _pageSize;
-      }
-    });
-    final offset = _products.length;
-    if (!_hasMore) {
-      if (mounted) setState(() => _loadingMore = false);
-      return;
-    }
-    try {
-      final nextPage = await ref
-          .read(catalogRepositoryProvider)
-          .productos(
-            categoriaId: categoryId,
-            q: query,
-            skip: offset,
-            limit: _pageSize,
-          );
-      if (!mounted || generation != _requestGeneration) return;
-      setState(() {
-        _products = [..._products, ...nextPage];
-        _hasMore = nextPage.length == _pageSize;
-      });
-    } catch (error) {
-      if (!mounted || generation != _requestGeneration) return;
-      setState(() => _paginationError = errorMessage(error));
-    } finally {
-      if (mounted && generation == _requestGeneration) {
-        setState(() => _loadingMore = false);
-      }
-    }
-  }
-
-  Future<void> _refresh() async {
-    _resetPagination();
-    final categoryId = ref.read(selectedCategoriaProvider);
-    final query = ref.read(searchProvider);
-    ref.invalidate(
-      productosProvider(
-        CatalogPageRequest(
-          categoriaId: categoryId,
-          query: query,
-          skip: 0,
-          limit: _pageSize,
-        ),
-      ),
-    );
-    await ref.read(
-      productosProvider(
-        CatalogPageRequest(
-          categoriaId: categoryId,
-          query: query,
-          skip: 0,
-          limit: _pageSize,
-        ),
-      ).future,
-    );
+  Future<void> _refresh(CatalogPageRequest request) async {
+    ref.invalidate(productosProvider(request));
+    await ref.read(productosProvider(request).future);
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(selectedCategoriaProvider, (_, _) => _resetPagination());
-    ref.listen(searchProvider, (_, _) => _resetPagination());
+    ref.listen(selectedCategoriaProvider, (_, _) => _resetPage());
+    ref.listen(searchProvider, (_, _) => _resetPage());
 
+    final theme = Theme.of(context);
     final categories = ref.watch(categoriasProvider);
     final categoryId = ref.watch(selectedCategoriaProvider);
     final query = ref.watch(searchProvider);
     final request = CatalogPageRequest(
       categoriaId: categoryId,
       query: query,
-      skip: 0,
+      skip: _pageIndex * _pageSize,
       limit: _pageSize,
     );
-    final filterKey = '${request.categoriaId}|${request.query}';
-    _activeCategory = categoryId;
-    _activeQuery = query;
-    _activeFilterKey = filterKey;
-    final firstPage = ref.watch(productosProvider(request));
+    final productsPage = ref.watch(productosProvider(request));
+    final selectedCategoryName = categories.value
+        ?.where((category) => category.id == categoryId)
+        .map((category) => category.nombre)
+        .firstOrNull;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Catálogo')),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Buscar producto...',
+                hintText: 'Buscar productos',
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 suffixIcon: query.isEmpty
@@ -181,10 +72,32 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                   ref.read(searchProvider.notifier).state = value.trim(),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Icon(Icons.grid_view_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                Text(
+                  'Compra por categoría',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           SizedBox(
             height: 48,
             child: categories.when(
-              loading: () => const SizedBox(),
+              loading: () => const Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
               error: (error, _) => Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: AppErrorNotice(
@@ -195,67 +108,76 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
               ),
               data: (list) => ListView(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: const Text('Todos'),
-                      selected: categoryId == null,
-                      onSelected: (_) =>
-                          ref.read(selectedCategoriaProvider.notifier).state =
-                              null,
-                    ),
+                  _CategoryButton(
+                    label: 'Todos',
+                    selected: categoryId == null,
+                    onPressed: () =>
+                        ref.read(selectedCategoriaProvider.notifier).state =
+                            null,
                   ),
                   for (final category in list)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(category.nombre),
-                        selected: categoryId == category.id,
-                        onSelected: (_) =>
-                            ref.read(selectedCategoriaProvider.notifier).state =
-                                category.id,
-                      ),
+                    _CategoryButton(
+                      label: category.nombre,
+                      selected: categoryId == category.id,
+                      onPressed: () =>
+                          ref.read(selectedCategoriaProvider.notifier).state =
+                              category.id,
                     ),
                 ],
               ),
             ),
           ),
+          if (selectedCategoryName != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      selectedCategoryName,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Página ${_pageIndex + 1}',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  query.isEmpty ? 'Productos destacados' : 'Resultados',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
           Expanded(
-            child: firstPage.when(
+            child: productsPage.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => AppErrorView(
                 error: error,
                 title: 'No pudimos cargar los productos',
                 onRetry: () => ref.invalidate(productosProvider(request)),
               ),
-              data: (page) {
-                final products = _loadedFilter == filterKey
-                    ? _products
-                    : page;
-                if (_loadedFilter != filterKey &&
-                    !_loadingMore &&
-                    products.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted || _loadedFilter == filterKey) return;
-                    setState(() {
-                      _products = page;
-                      _loadedFilter = filterKey;
-                      _hasMore = page.length == _pageSize;
-                    });
-                  });
-                }
+              data: (products) {
                 if (products.isEmpty) {
                   return RefreshIndicator(
-                    onRefresh: _refresh,
+                    onRefresh: () => _refresh(request),
                     child: ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: const [
-                        SizedBox(height: 140),
+                        SizedBox(height: 120),
                         Icon(Icons.search_off, size: 48),
                         SizedBox(height: 12),
                         Center(child: Text('No se encontraron productos')),
@@ -264,100 +186,130 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
                   );
                 }
                 return RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: CustomScrollView(
-                    controller: _scrollController,
+                  onRefresh: () => _refresh(request),
+                  child: GridView.builder(
+                    key: PageStorageKey(
+                      'catalog-${categoryId ?? 'all'}-$query-$_pageIndex',
+                    ),
+                    padding: const EdgeInsets.all(12),
                     physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverPadding(
-                        padding: const EdgeInsets.all(12),
-                        sliver: SliverGrid(
-                          gridDelegate:
-                              const SliverGridDelegateWithMaxCrossAxisExtent(
-                                maxCrossAxisExtent: 220,
-                                childAspectRatio: 0.72,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                              ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) => ProductCard(
-                              producto: products[index],
-                              onAdd: () {
-                                ref
-                                    .read(cartProvider.notifier)
-                                    .add(products[index]);
-                                ScaffoldMessenger.of(context)
-                                  ..hideCurrentSnackBar()
-                                  ..showSnackBar(
-                                    SnackBar(
-                                      duration: const Duration(seconds: 1),
-                                      content: Text(
-                                        '${products[index].nombre} agregado',
-                                      ),
-                                    ),
-                                  );
-                              },
-                            ),
-                            childCount: products.length,
-                          ),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 220,
+                          childAspectRatio: 0.72,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
                         ),
-                      ),
-                      if (_paginationError != null)
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'No pudimos cargar más productos. '
-                                  '$_paginationError',
-                                  textAlign: TextAlign.center,
-                                ),
-                                TextButton(
-                                  onPressed: () => _loadMore(
-                                    categoryId: categoryId,
-                                    query: query,
-                                    filterKey: filterKey,
-                                    firstPage: page,
-                                  ),
-                                  child: const Text('Reintentar'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else if (_loadingMore)
-                        const SliverToBoxAdapter(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                        )
-                      else if (_hasMore)
-                        SliverToBoxAdapter(
-                          child: Center(
-                            child: TextButton.icon(
-                              onPressed: () => _loadMore(
-                                categoryId: categoryId,
-                                query: query,
-                                filterKey: filterKey,
-                                firstPage: page,
+                    itemCount: products.length,
+                    itemBuilder: (context, index) => ProductCard(
+                      producto: products[index],
+                      onAdd: () {
+                        ref.read(cartProvider.notifier).add(products[index]);
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              duration: const Duration(seconds: 1),
+                              content: Text(
+                                '${products[index].nombre} agregado',
                               ),
-                              icon: const Icon(Icons.expand_more),
-                              label: const Text('Cargar más productos'),
                             ),
-                          ),
-                        ),
-                    ],
+                          );
+                      },
+                    ),
                   ),
                 );
               },
+            ),
+          ),
+          productsPage.when(
+            loading: () => const LinearProgressIndicator(minHeight: 2),
+            error: (_, _) => const SizedBox(height: 2),
+            data: (products) => _PaginationBar(
+              pageIndex: _pageIndex,
+              hasPrevious: _pageIndex > 0,
+              hasNext: products.length == _pageSize,
+              onPrevious: () => setState(() => _pageIndex--),
+              onNext: () => setState(() => _pageIndex++),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+class _CategoryButton extends StatelessWidget {
+  const _CategoryButton({
+    required this.label,
+    required this.selected,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(
+      avatar: selected ? const Icon(Icons.check, size: 16) : null,
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onPressed(),
+      showCheckmark: false,
+    ),
+  );
+}
+
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.pageIndex,
+    required this.hasPrevious,
+    required this.hasNext,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final int pageIndex;
+  final bool hasPrevious;
+  final bool hasNext;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: hasPrevious ? onPrevious : null,
+              icon: const Icon(Icons.chevron_left),
+              label: const Text('Anterior'),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'Página ${pageIndex + 1}',
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: hasNext ? onNext : null,
+              icon: const Icon(Icons.chevron_right),
+              label: const Text('Siguiente'),
+              iconAlignment: IconAlignment.end,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }
