@@ -39,7 +39,9 @@ class PedidoCard extends StatelessWidget {
             Row(
               children: [
                 Text(
-                  'Pedido #${pedido.id}',
+                  pedido.codigoPedido == null || pedido.codigoPedido!.isEmpty
+                      ? 'Pedido #${pedido.id}'
+                      : 'Pedido ${pedido.codigoPedido}',
                   style: t.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),

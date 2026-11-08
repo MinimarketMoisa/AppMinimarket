@@ -7,6 +7,7 @@ void main() {
   test('parses the deployed order response and nested delivery fields', () {
     final order = Pedido.fromJson({
       'id_pedido': 12,
+      'codigo_pedido': 'PED-000012',
       'canal': 'APP',
       'estado': 'EN_RUTA',
       'tipo_entrega': 'DOMICILIO',
@@ -28,6 +29,7 @@ void main() {
     });
 
     expect(order.id, 12);
+    expect(order.codigoPedido, 'PED-000012');
     expect(order.estado, 'en_ruta');
     expect(order.clienteNombre, 'Ana Pérez');
     expect(order.direccion, 'Colonia Centro');

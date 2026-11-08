@@ -7,6 +7,9 @@ class ApiEndpoints {
   static const verifyEmail = '/auth/verificar-correo'; // POST {token}
   static const resendVerification =
       '/auth/reenviar-verificacion'; // POST {email}
+  static const forgotPassword = '/auth/olvide-contrasena'; // POST {email}
+  static const resetPassword =
+      '/auth/restablecer-contrasena'; // POST {token, password}
 
   // Catálogo
   static const categorias = '/categorias'; // GET
@@ -22,11 +25,19 @@ class ApiEndpoints {
   // Pedidos de cliente
   static const pedidos = '/pedidos'; // POST
   static const misPedidos = '/pedidos/mis-pedidos'; // GET
+  static String pedidoPorCodigo(String codigo) =>
+      '/pedidos/codigo/${Uri.encodeComponent(codigo)}'; // GET
   static String estadoPedido(int id) => '/pedidos/$id/estado'; // PATCH {estado}
   static String seguimientoPedido(int id) => '/pedidos/$id/seguimiento'; // GET
+  static String seguimientoWebSocketPedido(int id) =>
+      '/pedidos/$id/ws/seguimiento';
   static String enviarFactura(int id) => '/pedidos/$id/enviar-factura'; // POST
   static String denunciarRepartidor(int id) =>
       '/pedidos/$id/denunciar'; // POST {motivo}
+
+  // Pagos Wompi Sandbox
+  static const tarjetasPrueba = '/pagos/wompi/tarjetas-prueba'; // GET
+  static const simularPagoWompi = '/pagos/wompi/simular'; // POST
 
   // Repartidor
   static const repartidorEntrante = '/repartidor/pedido-entrante'; // GET
@@ -37,6 +48,6 @@ class ApiEndpoints {
       '/repartidor/pedidos/$id/rechazar'; // POST {motivo}
   static const repartidorEstado = '/repartidor/estado'; // PATCH {estado}
   static const repartidorUbicacion =
-      '/repartidor/ubicacion'; // PATCH {latitud, longitud}
+      '/repartidor/ubicacion'; // PATCH {latitud, longitud, rumbo?, velocidad?}
   static const solicitudRepartidor = '/repartidor/solicitudes'; // POST público
 }

@@ -5,6 +5,7 @@ import 'package:minimarket/features/auth/domain/entities/user_entity.dart';
 import 'package:minimarket/features/auth/domain/repositories/auth_repository.dart';
 import 'package:minimarket/features/auth/presentation/pages/driver_application_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/email_verification_page.dart';
+import 'package:minimarket/features/auth/presentation/pages/forgot_password_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/profile_page.dart';
 import 'package:minimarket/features/auth/presentation/providers/auth_provider.dart';
 
@@ -12,6 +13,9 @@ class _FakeAuthRepository implements AuthRepository {
   String? verifiedToken;
   String? resentEmail;
   String? applicantEmail;
+  String? resetRequestEmail;
+  String? resetToken;
+  String? resetPasswordValue;
 
   @override
   Future<UserEntity?> currentUser() async => null;
@@ -52,6 +56,22 @@ class _FakeAuthRepository implements AuthRepository {
   Future<String> resendVerification(String email) async {
     resentEmail = email;
     return 'Correo reenviado.';
+  }
+
+  @override
+  Future<String> requestPasswordReset(String email) async {
+    resetRequestEmail = email;
+    return 'Si el correo está registrado, recibirás instrucciones.';
+  }
+
+  @override
+  Future<String> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    resetToken = token;
+    resetPasswordValue = password;
+    return 'Contraseña actualizada.';
   }
 
   @override
@@ -162,5 +182,42 @@ void main() {
 
     expect(repository.verifiedToken, 'verification-token');
     expect(find.text('Correo verificado.'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('requests and resets a forgotten password', (tester) async {
+    final repository = _FakeAuthRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          home: ForgotPasswordPage(initialEmail: 'cliente@example.com'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Enviar instrucciones'));
+    await tester.pumpAndSettle();
+
+    expect(repository.resetRequestEmail, 'cliente@example.com');
+    expect(find.text('Revisa tu correo'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Token o enlace de recuperación'),
+      'https://example.com/auth/restablecer-contrasena?token=reset-token',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Nueva contraseña'),
+      'NuevaClave123',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Confirma la nueva contraseña'),
+      'NuevaClave123',
+    );
+    await tester.ensureVisible(find.text('Actualizar contraseña'));
+    await tester.tap(find.text('Actualizar contraseña'));
+    await tester.pumpAndSettle();
+
+    expect(repository.resetToken, 'reset-token');
+    expect(repository.resetPasswordValue, 'NuevaClave123');
   });
 }

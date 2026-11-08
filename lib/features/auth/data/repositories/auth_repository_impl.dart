@@ -60,6 +60,16 @@ class AuthRepositoryImpl implements AuthRepository {
       _remote.resendVerification(email);
 
   @override
+  Future<String> requestPasswordReset(String email) =>
+      _remote.requestPasswordReset(email);
+
+  @override
+  Future<String> resetPassword({
+    required String token,
+    required String password,
+  }) => _remote.resetPassword(token: token, password: password);
+
+  @override
   Future<UserEntity?> currentUser() async {
     final token = await _storage.read();
     if (token == null) return null;

@@ -26,6 +26,7 @@ class DetallePedido {
 
 class Pedido {
   final int id;
+  final String? codigoPedido;
   final String canal;
   final DateTime? fechaCreacion;
   final String estado;
@@ -40,6 +41,7 @@ class Pedido {
 
   const Pedido({
     required this.id,
+    this.codigoPedido,
     required this.canal,
     this.fechaCreacion,
     required this.estado,
@@ -55,6 +57,7 @@ class Pedido {
 
   factory Pedido.fromJson(Map<String, dynamic> j) => Pedido(
     id: j['id_pedido'] ?? j['id'],
+    codigoPedido: j['codigo_pedido']?.toString(),
     canal: j['canal'] ?? '',
     fechaCreacion: DateTime.tryParse('${j['fecha_creacion']}'),
     estado: (j['estado'] ?? 'pendiente').toString().toLowerCase(),

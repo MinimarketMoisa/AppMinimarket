@@ -7,6 +7,7 @@ import '../../../../core/utils/helpers.dart';
 import '../providers/auth_provider.dart';
 import 'driver_application_page.dart';
 import 'email_verification_page.dart';
+import 'forgot_password_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -133,12 +134,43 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           : null,
                       onFieldSubmitted: (_) => _submit(),
                     ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => ForgotPasswordPage(
+                                    initialEmail: _email.text.trim(),
+                                  ),
+                                ),
+                              ),
+                        child: const Text('¿Olvidaste tu contraseña?'),
+                      ),
+                    ),
                     if (_error != null) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        _error!,
-                        style: TextStyle(color: cs.error),
-                        textAlign: TextAlign.center,
+                      Card(
+                        color: cs.errorContainer,
+                        child: Padding(
+                          padding: const EdgeInsets.all(14),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(Icons.error_outline, color: cs.error),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _error!,
+                                  style: TextStyle(
+                                    color: cs.onErrorContainer,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 20),

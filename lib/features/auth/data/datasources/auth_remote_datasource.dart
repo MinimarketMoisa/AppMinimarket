@@ -82,6 +82,32 @@ class AuthRemoteDataSource {
         : 'Solicitud procesada.';
   }
 
+  Future<String> requestPasswordReset(String email) async {
+    final response = await dio.post(
+      ApiEndpoints.forgotPassword,
+      data: {'email': email},
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ??
+              'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.'
+        : 'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.';
+  }
+
+  Future<String> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    final response = await dio.post(
+      ApiEndpoints.resetPassword,
+      data: {'token': token, 'password': password},
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ?? 'Tu contraseña fue actualizada.'
+        : 'Tu contraseña fue actualizada.';
+  }
+
   Future<UserModel> me() async {
     final r = await dio.get(ApiEndpoints.me);
     return UserModel.fromJson(r.data as Map<String, dynamic>);

@@ -21,12 +21,19 @@ class CatalogRepository {
         .toList();
   }
 
-  Future<List<Producto>> productos({int? categoriaId, String? q}) async {
+  Future<List<Producto>> productos({
+    int? categoriaId,
+    String? q,
+    int skip = 0,
+    int limit = 24,
+  }) async {
     final r = await dio.get(
       ApiEndpoints.productos,
       queryParameters: {
         'id_categoria': ?categoriaId,
         if (q != null && q.isNotEmpty) 'q': q,
+        'skip': skip,
+        'limit': limit,
       },
     );
     return (r.data as List)

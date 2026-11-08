@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,28 +17,29 @@ class DeliveryHomePage extends ConsumerStatefulWidget {
   ConsumerState<DeliveryHomePage> createState() => _DeliveryHomePageState();
 }
 
-class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
-    with WidgetsBindingObserver {
+class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
   String _estado = 'LIBRE';
+  StreamSubscription<Position>? _locationSubscription;
   Timer? _locationTimer;
+  Position? _latestPosition;
   bool _sendingLocation = false;
+  bool _startingLocationSharing = false;
   bool _sharingLocation = false;
+  bool _changingAvailability = false;
+  bool _hasActiveDelivery = false;
+  int? _processingIncomingOrderId;
+  bool _rejectingIncomingOrder = false;
+  final Set<int> _processingOrderIds = {};
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _stopLocationSharing();
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _locationTimer?.cancel();
+    final subscription = _locationSubscription;
+    if (subscription != null) unawaited(subscription.cancel());
     super.dispose();
   }
 
@@ -48,20 +50,33 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   }
 
   Future<void> _cambiarEstado(String estadoUi) async {
+    if (_changingAvailability) return;
+    setState(() => _changingAvailability = true);
     try {
       final estadoApi = estadoUi == 'disponible' ? 'LIBRE' : 'PENDIENTE';
       await ref.read(deliveryRepositoryProvider).cambiarEstado(estadoApi);
-      if (mounted) setState(() => _estado = estadoApi);
+      if (mounted) {
+        setState(() => _estado = estadoApi);
+        if (estadoApi == 'LIBRE') {
+          if (_hasActiveDelivery) {
+            await _startLocationSharing();
+          } else {
+            _stopLocationSharing();
+          }
+        } else if (!_hasActiveDelivery) {
+          _stopLocationSharing();
+        }
+      }
     } catch (error) {
       _msg(errorMessage(error));
+    } finally {
+      if (mounted) setState(() => _changingAvailability = false);
     }
   }
 
-  Future<void> _toggleLocationSharing() async {
-    if (_sharingLocation) {
-      _stopLocationSharing();
-      return;
-    }
+  Future<void> _startLocationSharing() async {
+    if (_sharingLocation || _startingLocationSharing || !mounted) return;
+    _startingLocationSharing = true;
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
         throw Exception('Activa los servicios de ubicación del dispositivo');
@@ -76,39 +91,90 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
           'Permite el acceso a la ubicación para compartir tu posición',
         );
       }
-      if (!await _sendLocation()) return;
+      if (Platform.isIOS && permission != LocationPermission.always) {
+        throw Exception(
+          'Para compartir ubicación en segundo plano, permite el acceso '
+          '"Siempre" en los ajustes de ubicación de la app.',
+        );
+      }
+      final position = await Geolocator.getCurrentPosition(
+        locationSettings: LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 20),
+        ),
+      );
+      _latestPosition = position;
+      await _sendLocation(position);
       if (!mounted) return;
       setState(() => _sharingLocation = true);
-      _locationTimer = Timer.periodic(
-        const Duration(seconds: 5),
-        (_) => _sendLocation(),
-      );
+      _locationSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: _backgroundLocationSettings(),
+          ).listen(
+            (position) => _latestPosition = position,
+            onError: (Object error) {
+              _stopLocationSharing();
+              _msg(errorMessage(error));
+            },
+          );
+      _locationTimer?.cancel();
+      _locationTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+        final latestPosition = _latestPosition;
+        if (latestPosition != null) unawaited(_sendLocation(latestPosition));
+      });
     } catch (error) {
       _msg(errorMessage(error));
+    } finally {
+      _startingLocationSharing = false;
     }
   }
 
-  Future<bool> _sendLocation() async {
-    if (_sendingLocation) return false;
-    _sendingLocation = true;
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) {
-        throw Exception('Los servicios de ubicación están desactivados');
-      }
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+  LocationSettings _backgroundLocationSettings() {
+    if (Platform.isAndroid) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 5),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationTitle: 'Minimarket - ubicación activa',
+          notificationText: 'Compartiendo ubicación para tus entregas',
+          notificationChannelName: 'Ubicación del repartidor',
+          enableWakeLock: true,
+          setOngoing: true,
         ),
       );
+    }
+    if (Platform.isIOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 0,
+    );
+  }
+
+  Future<void> _sendLocation(Position position) async {
+    if (_sendingLocation) return;
+    _sendingLocation = true;
+    try {
       await ref
           .read(deliveryRepositoryProvider)
-          .actualizarUbicacion(position.latitude, position.longitude);
-      return true;
+          .actualizarUbicacion(
+            latitud: position.latitude,
+            longitud: position.longitude,
+            rumbo: position.heading,
+            velocidad: position.speed,
+          );
     } catch (error) {
       _stopLocationSharing();
       _msg(errorMessage(error));
-      return false;
     } finally {
       _sendingLocation = false;
     }
@@ -117,10 +183,21 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   void _stopLocationSharing() {
     _locationTimer?.cancel();
     _locationTimer = null;
+    final subscription = _locationSubscription;
+    _locationSubscription = null;
+    if (subscription != null) unawaited(subscription.cancel());
     if (_sharingLocation && mounted) {
       setState(() => _sharingLocation = false);
     } else {
       _sharingLocation = false;
+    }
+  }
+
+  Future<void> _toggleLocationSharing() async {
+    if (_sharingLocation) {
+      _stopLocationSharing();
+    } else {
+      await _startLocationSharing();
     }
   }
 
@@ -155,35 +232,76 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   );
 
   Future<void> _accept(int pedidoId) async {
+    if (_processingIncomingOrderId != null) return;
+    setState(() => _processingIncomingOrderId = pedidoId);
     try {
       await ref.read(deliveryRepositoryProvider).aceptar(pedidoId);
+      if (!mounted) return;
       ref.invalidate(pedidoEntranteProvider);
       ref.invalidate(pedidosAsignadosProvider);
       _msg('Pedido aceptado');
+      unawaited(_startLocationSharing());
     } catch (error) {
-      _msg(errorMessage(error));
+      if (mounted) {
+        ref.invalidate(pedidoEntranteProvider);
+        ref.invalidate(pedidosAsignadosProvider);
+        _msg(errorMessage(error));
+      }
+    } finally {
+      if (mounted) setState(() => _processingIncomingOrderId = null);
     }
   }
 
   Future<void> _reject(int pedidoId) async {
-    final reason = await _askRejectionReason();
-    if (reason == null) return;
+    if (_processingIncomingOrderId != null) return;
+    setState(() {
+      _processingIncomingOrderId = pedidoId;
+      _rejectingIncomingOrder = true;
+    });
     try {
+      final reason = await _askRejectionReason();
+      if (reason == null || !mounted) return;
       await ref.read(deliveryRepositoryProvider).rechazar(pedidoId, reason);
+      if (!mounted) return;
       ref.invalidate(pedidoEntranteProvider);
+      ref.invalidate(pedidosAsignadosProvider);
       _msg('Pedido rechazado');
     } catch (error) {
-      _msg(errorMessage(error));
+      if (mounted) {
+        ref.invalidate(pedidoEntranteProvider);
+        ref.invalidate(pedidosAsignadosProvider);
+        _msg(errorMessage(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _processingIncomingOrderId = null;
+          _rejectingIncomingOrder = false;
+        });
+      }
     }
   }
 
   Future<void> _changeOrderState(int id, String state) async {
+    if (!_processingOrderIds.add(id)) return;
+    setState(() {});
     try {
       await ref.read(deliveryRepositoryProvider).cambiarEstadoPedido(id, state);
+      if (!mounted) return;
       ref.invalidate(pedidosAsignadosProvider);
+      if (state == 'EN_RUTA') {
+        unawaited(_startLocationSharing());
+      }
       _msg(state == 'ENTREGADO' ? 'Entrega completada' : 'Ruta iniciada');
     } catch (error) {
-      _msg(errorMessage(error));
+      if (mounted) {
+        ref.invalidate(pedidosAsignadosProvider);
+        _msg(errorMessage(error));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _processingOrderIds.remove(id));
+      }
     }
   }
 
@@ -191,9 +309,23 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
   Widget build(BuildContext context) {
     ref.listen(sessionExpiryProvider, (previous, next) {
       if (previous != null && next > previous) {
+        _stopLocationSharing();
         ref.invalidate(authProvider);
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
+    });
+    ref.listen(pedidosAsignadosProvider, (_, next) {
+      next.whenData((list) {
+        _hasActiveDelivery = list.any(
+          (pedido) =>
+              pedido.estado != 'entregado' && pedido.estado != 'cancelado',
+        );
+        if (_hasActiveDelivery) {
+          _startLocationSharing();
+        } else {
+          _stopLocationSharing();
+        }
+      });
     });
     final user = ref.watch(authProvider).value;
     final pedidos = ref.watch(pedidosAsignadosProvider);
@@ -228,6 +360,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                    key: ValueKey(_estado),
                     initialValue: _estado == 'LIBRE'
                         ? 'disponible'
                         : 'no_disponible',
@@ -245,17 +378,27 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
                         child: Text('No disponible'),
                       ),
                     ],
-                    onChanged: (value) =>
-                        value == null ? null : _cambiarEstado(value),
+                    onChanged: _changingAvailability
+                        ? null
+                        : (value) =>
+                              value == null ? null : _cambiarEstado(value),
                   ),
                 ),
                 const SizedBox(width: 12),
                 OutlinedButton.icon(
-                  onPressed: _toggleLocationSharing,
+                  onPressed: _hasActiveDelivery && _sharingLocation
+                      ? null
+                      : _toggleLocationSharing,
                   icon: Icon(
                     _sharingLocation ? Icons.location_off : Icons.my_location,
                   ),
-                  label: Text(_sharingLocation ? 'Pausar' : 'Compartir'),
+                  label: Text(
+                    _sharingLocation
+                        ? 'Compartiendo'
+                        : _hasActiveDelivery
+                        ? 'Reintentar ubicación'
+                        : 'Compartir',
+                  ),
                 ),
               ],
             ),
@@ -283,14 +426,48 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
                             mostrarCliente: true,
                             actions: [
                               FilledButton.icon(
-                                icon: const Icon(Icons.check),
-                                label: const Text('Aceptar'),
-                                onPressed: () => _accept(pedido.id),
+                                icon:
+                                    _processingIncomingOrderId == pedido.id &&
+                                        !_rejectingIncomingOrder
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.check),
+                                label: Text(
+                                  _processingIncomingOrderId == pedido.id &&
+                                          !_rejectingIncomingOrder
+                                      ? 'Aceptando...'
+                                      : 'Aceptar',
+                                ),
+                                onPressed: _processingIncomingOrderId == null
+                                    ? () => _accept(pedido.id)
+                                    : null,
                               ),
                               OutlinedButton.icon(
-                                icon: const Icon(Icons.close),
-                                label: const Text('Rechazar'),
-                                onPressed: () => _reject(pedido.id),
+                                icon:
+                                    _processingIncomingOrderId == pedido.id &&
+                                        _rejectingIncomingOrder
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.close),
+                                label: Text(
+                                  _processingIncomingOrderId == pedido.id &&
+                                          _rejectingIncomingOrder
+                                      ? 'Rechazando...'
+                                      : 'Rechazar',
+                                ),
+                                onPressed: _processingIncomingOrderId == null
+                                    ? () => _reject(pedido.id)
+                                    : null,
                               ),
                             ],
                           ),
@@ -320,23 +497,69 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage>
                                   actions: [
                                     if (pedido.estado == 'preparado')
                                       FilledButton.icon(
-                                        icon: const Icon(Icons.delivery_dining),
-                                        label: const Text('Iniciar entrega'),
-                                        onPressed: () => _changeOrderState(
-                                          pedido.id,
-                                          'EN_RUTA',
+                                        icon:
+                                            _processingOrderIds.contains(
+                                              pedido.id,
+                                            )
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Icon(Icons.delivery_dining),
+                                        label: Text(
+                                          _processingOrderIds.contains(
+                                                pedido.id,
+                                              )
+                                              ? 'Actualizando...'
+                                              : 'Iniciar entrega',
                                         ),
+                                        onPressed:
+                                            _processingOrderIds.contains(
+                                              pedido.id,
+                                            )
+                                            ? null
+                                            : () => _changeOrderState(
+                                                pedido.id,
+                                                'EN_RUTA',
+                                              ),
                                       ),
                                     if (pedido.estado == 'en_ruta')
                                       FilledButton.icon(
-                                        icon: const Icon(
-                                          Icons.check_circle_outline,
+                                        icon:
+                                            _processingOrderIds.contains(
+                                              pedido.id,
+                                            )
+                                            ? const SizedBox(
+                                                width: 18,
+                                                height: 18,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              )
+                                            : const Icon(
+                                                Icons.check_circle_outline,
+                                              ),
+                                        label: Text(
+                                          _processingOrderIds.contains(
+                                                pedido.id,
+                                              )
+                                              ? 'Actualizando...'
+                                              : 'Completar entrega',
                                         ),
-                                        label: const Text('Completar entrega'),
-                                        onPressed: () => _changeOrderState(
-                                          pedido.id,
-                                          'ENTREGADO',
-                                        ),
+                                        onPressed:
+                                            _processingOrderIds.contains(
+                                              pedido.id,
+                                            )
+                                            ? null
+                                            : () => _changeOrderState(
+                                                pedido.id,
+                                                'ENTREGADO',
+                                              ),
                                       ),
                                   ],
                                 ),

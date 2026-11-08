@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/helpers.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
@@ -76,7 +77,11 @@ class OrdersPage extends ConsumerWidget {
       appBar: AppBar(title: const Text('Mis pedidos')),
       body: pedidos.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(errorMessage(e))),
+        error: (e, _) => AppErrorView(
+          error: e,
+          title: 'No pudimos cargar tus pedidos',
+          onRetry: () => ref.invalidate(misPedidosProvider),
+        ),
         data: (list) => RefreshIndicator(
           onRefresh: () async => ref.invalidate(misPedidosProvider),
           child: list.isEmpty

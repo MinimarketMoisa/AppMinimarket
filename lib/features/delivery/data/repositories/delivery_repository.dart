@@ -13,8 +13,11 @@ class DeliveryRepository {
     return Pedido.fromJson(data as Map<String, dynamic>);
   }
 
-  Future<List<Pedido>> asignados() async {
-    final r = await dio.get(ApiEndpoints.repartidorPedidos);
+  Future<List<Pedido>> asignados({String estadoRepartidor = 'ACEPTADO'}) async {
+    final r = await dio.get(
+      ApiEndpoints.repartidorPedidos,
+      queryParameters: {'estado_repartidor': estadoRepartidor},
+    );
     return (r.data as List)
         .map((e) => Pedido.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -23,9 +26,19 @@ class DeliveryRepository {
   Future<void> cambiarEstado(String estado) =>
       dio.patch(ApiEndpoints.repartidorEstado, data: {'estado': estado});
 
-  Future<void> actualizarUbicacion(double lat, double lng) => dio.patch(
+  Future<void> actualizarUbicacion({
+    required double latitud,
+    required double longitud,
+    required double rumbo,
+    required double velocidad,
+  }) => dio.patch(
     ApiEndpoints.repartidorUbicacion,
-    data: {'latitud': lat, 'longitud': lng},
+    data: {
+      'latitud': latitud,
+      'longitud': longitud,
+      'rumbo': rumbo,
+      'velocidad': velocidad,
+    },
   );
 
   Future<void> aceptar(int pedidoId) async {

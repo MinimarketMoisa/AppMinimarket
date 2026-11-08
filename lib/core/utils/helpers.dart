@@ -22,7 +22,7 @@ String estadoLabel(String e) =>
       'entregado': 'Entregado',
       'cancelado': 'Cancelado',
       'contra_entrega': 'Efectivo contra entrega',
-      'transferencia': 'Transferencia',
+      'tarjeta': 'Tarjeta crédito/débito',
       'pagado': 'Pagado',
     }[e] ??
     e;
@@ -33,42 +33,40 @@ String errorMessage(Object e) {
     final statusCode = e.response?.statusCode;
     switch (statusCode) {
       case 401:
-        return 'Correo o contraseña incorrectos, o la sesión expiró.';
+        return 'No pudimos validar tus datos. Revisa tu correo y contraseña e inténtalo de nuevo.';
       case 403:
-        return 'La cuenta no tiene permiso para esta acción o requiere verificar el correo.';
+        return 'Tu cuenta necesita una verificación adicional para continuar.';
       case 404:
-        return 'No se encontró el recurso solicitado.';
+        return 'No encontramos lo que buscabas. Actualiza la pantalla e inténtalo otra vez.';
+      case 400:
+        return 'No pudimos completar la solicitud. Revisa la información e inténtalo de nuevo.';
       case 409:
-        return 'La solicitud entra en conflicto con el estado actual. Actualiza e inténtalo de nuevo.';
+        return 'Esta acción ya no está disponible. Actualiza la pantalla e inténtalo de nuevo.';
+      case 422:
+        return 'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.';
       case 429:
-        return 'Hay demasiadas solicitudes. Espera un momento e inténtalo de nuevo.';
+        return 'Estamos recibiendo muchas solicitudes. Espera un momento e inténtalo de nuevo.';
       case 500:
       case 502:
       case 503:
       case 504:
-        return 'El servidor de Minimarket está teniendo problemas (HTTP $statusCode). Inténtalo más tarde.';
+        return 'Tuvimos un problema temporal con el servicio. Inténtalo de nuevo en unos minutos.';
     }
 
-    final d = e.response?.data;
-    if (d is Map && d['detail'] != null) {
-      final det = d['detail'];
-      if (det is String) return det;
-      if (det is List && det.isNotEmpty) {
-        final first = det.first;
-        if (first is Map && first['msg'] != null) {
-          return first['msg'].toString();
-        }
-      }
-    }
     if (e.type == DioExceptionType.connectionError ||
         e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.receiveTimeout ||
         e.type == DioExceptionType.sendTimeout) {
-      return 'No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.';
+      return 'No pudimos conectar con Minimarket. Comprueba tu conexión a internet e inténtalo de nuevo.';
     }
+    if (e.type == DioExceptionType.cancel) {
+      return 'La solicitud se canceló. Puedes intentarlo de nuevo cuando quieras.';
+    }
+    return 'Ocurrió un problema inesperado. Inténtalo de nuevo.';
   }
-  if (e is DioException && e.message != null) {
-    return e.message!;
+  if (e is FormatException) {
+    return 'La información recibida no tiene el formato esperado. Inténtalo de nuevo.';
   }
-  return e.toString();
+  if (e is StateError) return e.message;
+  return 'Ocurrió un problema inesperado. Inténtalo de nuevo.';
 }

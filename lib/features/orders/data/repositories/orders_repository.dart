@@ -16,7 +16,7 @@ class OrdersRepository {
     int? direccionId,
     int? sucursalId,
     required String tipoEntrega, // DOMICILIO | RETIRO
-    required String metodoPago, // CONTRA_ENTREGA | TRANSFERENCIA
+    required String metodoPago, // CONTRA_ENTREGA | TRANSFERENCIA | TARJETA
   }) async {
     final r = await dio.post(
       ApiEndpoints.pedidos,
@@ -35,6 +35,11 @@ class OrdersRepository {
   Future<List<Pedido>> misPedidos() async =>
       _list((await dio.get(ApiEndpoints.misPedidos)).data);
 
+  Future<Pedido> pedidoPorCodigo(String codigo) async {
+    final response = await dio.get(ApiEndpoints.pedidoPorCodigo(codigo));
+    return Pedido.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<void> cancelar(int id) => cambiarEstado(id, 'CANCELADO');
 
   Future<void> cambiarEstado(int id, String estado) => dio.patch(
@@ -45,6 +50,33 @@ class OrdersRepository {
   Future<Map<String, dynamic>> seguimiento(int id) async =>
       (await dio.get(ApiEndpoints.seguimientoPedido(id))).data
           as Map<String, dynamic>;
+
+  Future<Map<String, dynamic>> simularPagoWompi({
+    required int pedidoId,
+    required String numeroTarjeta,
+    required String nombreTitular,
+    required String mesExpiracion,
+    required String anioExpiracion,
+    required String cvv,
+    required String emailPagador,
+  }) async {
+    final response = await dio.post(
+      ApiEndpoints.simularPagoWompi,
+      data: {
+        'id_pedido': pedidoId,
+        'numero_tarjeta': numeroTarjeta,
+        'nombre_titular': nombreTitular,
+        'mes_expiracion': mesExpiracion,
+        'anio_expiracion': anioExpiracion,
+        'cvv': cvv,
+        'email_pagador': emailPagador,
+      },
+    );
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
+  Future<dynamic> tarjetasPruebaWompi() async =>
+      (await dio.get(ApiEndpoints.tarjetasPrueba)).data;
 
   Future<void> reenviarFactura(int id) async {
     await dio.post(ApiEndpoints.enviarFactura(id));

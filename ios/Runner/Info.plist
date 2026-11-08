@@ -28,6 +28,14 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>La ubicación permite asignar y actualizar tus entregas.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>La ubicación se comparte durante tus entregas aunque la app esté en segundo plano.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>La ubicación se comparte durante tus entregas aunque la app esté en segundo plano.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

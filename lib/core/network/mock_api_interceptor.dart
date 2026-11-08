@@ -13,7 +13,16 @@ class _MockError implements Exception {
 class MockApiInterceptor extends Interceptor {
   int _nextUser = 4, _nextDir = 3, _nextPedido = 1;
   String _estadoRepartidor = 'LIBRE';
+  int _nextTransaction = 1;
   String? _pendingVerificationEmail;
+  String? _pendingPasswordResetToken;
+  final Map<String, dynamic> _repartidorUbicacion = {
+    'latitud': 13.4840,
+    'longitud': -88.1840,
+    'rumbo': 0.0,
+    'velocidad': 0.0,
+    'ultima_actualizacion': null,
+  };
 
   final List<Map<String, dynamic>> _users = [
     {
@@ -130,6 +139,7 @@ class MockApiInterceptor extends Interceptor {
         tipoEntrega: 'domicilio',
         metodoPago: 'efectivo',
         estado: 'preparado',
+        estadoRepartidor: 'ACEPTADO',
       ),
     );
   }
@@ -162,9 +172,9 @@ class MockApiInterceptor extends Interceptor {
 
   // ---------- helpers ----------
   Map<String, dynamic>? _currentUser(RequestOptions o) {
-    final h = o.headers['Authorization']?.toString() ?? '';
-    if (!h.startsWith('Bearer mock-')) return null;
-    final id = int.tryParse(h.substring(12));
+    final authorization = o.headers['Authorization']?.toString() ?? '';
+    if (!authorization.startsWith('Bearer mock-')) return null;
+    final id = int.tryParse(authorization.substring('Bearer mock-'.length));
     for (final u in _users) {
       if (u['id'] == id) return u;
     }
@@ -200,7 +210,9 @@ class MockApiInterceptor extends Interceptor {
     required String tipoEntrega,
     required String metodoPago,
     String estado = 'pendiente',
+    String? estadoRepartidor,
   }) {
+    final pedidoId = _nextPedido++;
     final detalles = <Map<String, dynamic>>[];
     var subtotal = 0.0;
     for (final it in items) {
@@ -228,16 +240,21 @@ class MockApiInterceptor extends Interceptor {
     final envio = domicilio ? 2.0 : 0.0;
     final cliente = _users.firstWhere((u) => u['id'] == clienteId);
     return {
-      'id': _nextPedido++,
+      'id': pedidoId,
+      'id_pedido': pedidoId,
+      'codigo_pedido': 'PED-${pedidoId.toString().padLeft(6, '0')}',
       'cliente_id': clienteId,
       'cliente_nombre': cliente['nombre_completo'],
       'repartidor_id': domicilio && clienteId != 3 ? 3 : null,
+      'estado_repartidor':
+          estadoRepartidor ?? (domicilio && clienteId != 3 ? 'ASIGNADO' : null),
       'canal': 'app_movil',
       'fecha_creacion': DateTime.now().toIso8601String(),
       'estado': estado,
       'tipo_entrega': tipoEntrega,
       'metodo_pago': metodoPago,
-      'estado_pago': metodoPago == 'tarjeta' ? 'pagado' : 'pendiente',
+      'estado_pago': 'pendiente',
+      'referencia_pago': null,
       'costo_envio': envio,
       'total': subtotal + envio,
       'direccion': domicilio ? _direccionTexto(direccionId) : null,
@@ -269,7 +286,10 @@ class MockApiInterceptor extends Interceptor {
         throw _MockError(401, 'Correo o contraseña incorrectos');
       }
       if (found.first['email_verificado'] != true) {
-        throw _MockError(403, 'Debes verificar tu correo antes de iniciar sesión');
+        throw _MockError(
+          403,
+          'Debes verificar tu correo antes de iniciar sesión',
+        );
       }
       return {
         'access_token': 'mock-${found.first['id']}',
@@ -324,6 +344,46 @@ class MockApiInterceptor extends Interceptor {
       _pendingVerificationEmail = user.first['email'] as String;
       return {'mensaje': 'Correo de verificación reenviado.'};
     }
+    if (path == ApiEndpoints.forgotPassword && m == 'POST') {
+      final email = (body['email'] as String? ?? '').trim().toLowerCase();
+      _pendingPasswordResetToken = null;
+      final user = _users.where(
+        (item) => (item['email'] as String).toLowerCase() == email,
+      );
+      if (user.isNotEmpty) {
+        _pendingPasswordResetToken = 'mock-reset-${user.first['id']}';
+      }
+      return {
+        'mensaje': 'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.',
+      };
+    }
+    if (path == ApiEndpoints.resetPassword && m == 'POST') {
+      final token = (body['token'] as String? ?? '').trim();
+      final password = body['password'] as String? ?? '';
+      if (token.isEmpty || token != _pendingPasswordResetToken) {
+        throw _MockError(
+          400,
+          'El enlace de recuperación no es válido o expiró.',
+        );
+      }
+      if (password.length < 8 || password.length > 128) {
+        throw _MockError(
+          422,
+          'La contraseña debe tener entre 8 y 128 caracteres.',
+        );
+      }
+      final userId = int.tryParse(token.substring('mock-reset-'.length));
+      final user = _users.where((item) => item['id'] == userId);
+      if (user.isEmpty) {
+        throw _MockError(
+          400,
+          'El enlace de recuperación no es válido o expiró.',
+        );
+      }
+      user.first['password'] = password;
+      _pendingPasswordResetToken = null;
+      return {'mensaje': 'Tu contraseña fue actualizada correctamente.'};
+    }
     if (path == ApiEndpoints.solicitudRepartidor && m == 'POST') {
       final email = (body['email'] as String? ?? '').trim().toLowerCase();
       if (_users.any(
@@ -332,8 +392,7 @@ class MockApiInterceptor extends Interceptor {
         throw _MockError(409, 'Ese correo ya tiene una cuenta');
       }
       return {
-        'mensaje':
-            'Solicitud recibida. La empresa revisará tus datos antes de habilitar el acceso.',
+        'mensaje': 'Solicitud recibida. La empresa revisará tus datos antes de habilitar el acceso.',
         'id_solicitud': 1,
       };
     }
@@ -345,7 +404,7 @@ class MockApiInterceptor extends Interceptor {
         '${q['id_categoria'] ?? q['categoria_id'] ?? ''}',
       );
       final txt = '${q['q'] ?? ''}'.toLowerCase();
-      return _productos
+      final filtered = _productos
           .where((p) => cat == null || p['categoria_id'] == cat)
           .where(
             (p) =>
@@ -353,6 +412,10 @@ class MockApiInterceptor extends Interceptor {
                 (p['nombre'] as String).toLowerCase().contains(txt),
           )
           .toList();
+      final skip = int.tryParse('${q['skip'] ?? 0}') ?? 0;
+      final limit = int.tryParse('${q['limit'] ?? 50}') ?? 50;
+      if (skip >= filtered.length) return <Map<String, dynamic>>[];
+      return filtered.skip(skip).take(limit).toList();
     }
     final availability = RegExp(r'^/productos/(\d+)/disponibilidad$')
         .firstMatch(path);
@@ -409,12 +472,127 @@ class MockApiInterceptor extends Interceptor {
       _pedidos.add(p);
       return p;
     }
+    if (path == ApiEndpoints.tarjetasPrueba && m == 'GET') {
+      return [
+        {
+          'tipo': 'VISA',
+          'numero': '4242 4242 4242 4242',
+          'nombre_titular': 'CLIENTE DEMO',
+          'mes': '12',
+          'anio': '2028',
+          'cvv': '123',
+          'resultado': 'APROBADA',
+          'descripcion': 'Tarjeta aprobada',
+        },
+        {
+          'tipo': 'VISA',
+          'numero': '4000 0000 0000 0002',
+          'nombre_titular': 'CLIENTE DEMO',
+          'mes': '12',
+          'anio': '2028',
+          'cvv': '123',
+          'resultado': 'DECLINADA',
+          'descripcion': 'Fondos insuficientes',
+        },
+        {
+          'tipo': 'VISA',
+          'numero': '4000 0000 0000 0003',
+          'nombre_titular': 'CLIENTE DEMO',
+          'mes': '12',
+          'anio': '2028',
+          'cvv': '123',
+          'resultado': 'DECLINADA',
+          'descripcion': 'Tarjeta bloqueada por seguridad',
+        },
+        {
+          'tipo': 'VISA',
+          'numero': '4000 0000 0000 0004',
+          'nombre_titular': 'CLIENTE DEMO',
+          'mes': '01',
+          'anio': '2022',
+          'cvv': '123',
+          'resultado': 'DECLINADA',
+          'descripcion': 'Tarjeta vencida',
+        },
+      ];
+    }
+    if (path == ApiEndpoints.simularPagoWompi && m == 'POST') {
+      final p = _pedido(body['id_pedido'] as int);
+      if (p['cliente_id'] != me['id']) {
+        throw _MockError(404, 'Pedido no encontrado');
+      }
+      if (p['estado_pago'] == 'pagado') {
+        throw _MockError(409, 'El pedido ya fue pagado');
+      }
+      if (p['estado'] == 'cancelado') {
+        throw _MockError(409, 'No se puede pagar un pedido cancelado');
+      }
+      final digits = (body['numero_tarjeta'] as String).replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
+      final decline = switch (digits) {
+        '4000000000000002' => (
+          'FONDOS_INSUFICIENTES',
+          'Transacción declinada: La cuenta asociada no cuenta con fondos suficientes.',
+        ),
+        '4000000000000003' => (
+          'TARJETA_BLOQUEADA',
+          'Transacción declinada: La tarjeta fue bloqueada por seguridad.',
+        ),
+        '4000000000000004' => (
+          'TARJETA_VENCIDA',
+          'Transacción declinada: La tarjeta se encuentra vencida.',
+        ),
+        _ => null,
+      };
+      final approved = decline == null;
+      final transactionId =
+          'WOMPI-SIM-${_nextTransaction.toString().padLeft(8, '0')}';
+      _nextTransaction++;
+      if (approved) {
+        p['estado_pago'] = 'pagado';
+        p['metodo_pago'] = 'tarjeta';
+        p['referencia_pago'] = transactionId;
+      }
+      return {
+        'id_transaccion': transactionId,
+        'id_pedido': p['id'],
+        'codigo_pedido': 'PED-${(p['id'] as int).toString().padLeft(6, '0')}',
+        'estado_transaccion': approved ? 'APROBADA' : 'DECLINADA',
+        'codigo_respuesta': approved ? 'APROBADA' : decline.$1,
+        'mensaje': approved
+            ? '¡Pago aprobado con éxito! Tu transacción ha sido procesada por Wompi Sandbox.'
+            : decline.$2,
+        'monto': p['total'],
+        'moneda': 'USD',
+        'marca_tarjeta': 'VISA',
+        'ultimos_cuatro': digits.length >= 4
+            ? digits.substring(digits.length - 4)
+            : '',
+        'nombre_titular': body['nombre_titular'],
+        'fecha_transaccion': DateTime.now().toUtc().toIso8601String(),
+        'referencia_wompi':
+            'REF-${_nextTransaction.toString().padLeft(4, '0')}',
+        'recibo_enviado_email': approved,
+      };
+    }
     if (path == ApiEndpoints.misPedidos) {
       return _pedidos
           .where((p) => p['cliente_id'] == me['id'])
           .toList()
           .reversed
           .toList();
+    }
+    final orderByCode = RegExp(r'^/pedidos/codigo/([^/]+)$').firstMatch(path);
+    if (orderByCode != null && m == 'GET') {
+      final code = Uri.decodeComponent(orderByCode.group(1)!);
+      final matches = _pedidos.where(
+        (order) =>
+            order['codigo_pedido'] == code && order['cliente_id'] == me['id'],
+      );
+      if (matches.isEmpty) throw _MockError(404, 'Pedido no encontrado');
+      return matches.first;
     }
     final ped = RegExp(r'^/pedidos/(\d+)/(cancelar|estado)$').firstMatch(path);
     if (ped != null) {
@@ -437,6 +615,7 @@ class MockApiInterceptor extends Interceptor {
       final destino = direccion.isEmpty ? null : _dirJson(direccion.first);
       return {
         'id_pedido': p['id'],
+        'codigo_pedido': p['codigo_pedido'],
         'estado': (p['estado'] as String).toUpperCase(),
         'estado_repartidor': 'EN_RUTA',
         'tipo_entrega': (p['tipo_entrega'] as String).toUpperCase(),
@@ -462,9 +641,10 @@ class MockApiInterceptor extends Interceptor {
           'id_repartidor': p['repartidor_id'],
           'nombre': 'Repartidor Demo',
           'telefono': '7000-0003',
-          'latitud': 13.4840,
-          'longitud': -88.1840,
-          'ultima_actualizacion': DateTime.now().toIso8601String(),
+          ..._repartidorUbicacion,
+          'ultima_actualizacion':
+              _repartidorUbicacion['ultima_actualizacion'] ??
+              DateTime.now().toIso8601String(),
         },
       };
     }
@@ -479,35 +659,58 @@ class MockApiInterceptor extends Interceptor {
       return {'mensaje': 'Solicitud procesada'};
     }
 
-    if (path == ApiEndpoints.repartidorEntrante) return null;
-    if (path == ApiEndpoints.repartidorPedidos) {
+    if (path == ApiEndpoints.repartidorEntrante && m == 'GET') {
+      final incoming = _pedidos.where(
+        (p) =>
+            p['repartidor_id'] == me['id'] &&
+            p['estado_repartidor'] == 'ASIGNADO',
+      );
+      return incoming.isEmpty ? null : incoming.first;
+    }
+    if (path == ApiEndpoints.repartidorPedidos && m == 'GET') {
       return _pedidos
           .where(
             (p) =>
                 p['repartidor_id'] == me['id'] &&
-                p['estado'] != 'entregado' &&
-                p['estado'] != 'cancelado',
+                (q['estado_repartidor'] == null ||
+                    p['estado_repartidor'] == q['estado_repartidor']),
           )
           .toList();
     }
     final riderAction = RegExp(
       r'^/repartidor/pedidos/(\d+)/(aceptar|rechazar)$',
     ).firstMatch(path);
-    if (riderAction != null) {
+    if (riderAction != null && m == 'POST') {
       final p = _pedido(int.parse(riderAction.group(1)!));
       if (riderAction.group(2) == 'aceptar') {
-        p['repartidor_id'] = me['id'];
+        if (p['repartidor_id'] != me['id'] ||
+            p['estado_repartidor'] != 'ASIGNADO') {
+          throw _MockError(409, 'El pedido ya no está disponible');
+        }
+        p['estado_repartidor'] = 'ACEPTADO';
         return p;
       }
+      if (p['repartidor_id'] != me['id'] ||
+          p['estado_repartidor'] != 'ASIGNADO') {
+        throw _MockError(409, 'El pedido ya no está disponible');
+      }
       p['repartidor_id'] = null;
-      p['estado_repartidor'] = 'LIBRE';
+      p['estado_repartidor'] = 'RECHAZADO';
       return {'mensaje': 'Pedido rechazado'};
     }
     if (path == ApiEndpoints.repartidorEstado) {
       _estadoRepartidor = body['estado'] as String;
       return {'estado': _estadoRepartidor};
     }
-    if (path == ApiEndpoints.repartidorUbicacion) return {'ok': true};
+    if (path == ApiEndpoints.repartidorUbicacion && m == 'PATCH') {
+      _repartidorUbicacion
+        ..['latitud'] = body['latitud']
+        ..['longitud'] = body['longitud']
+        ..['rumbo'] = body['rumbo']
+        ..['velocidad'] = body['velocidad']
+        ..['ultima_actualizacion'] = DateTime.now().toIso8601String();
+      return {'ok': true};
+    }
 
     throw _MockError(404, 'Ruta no encontrada: $m $path');
   }

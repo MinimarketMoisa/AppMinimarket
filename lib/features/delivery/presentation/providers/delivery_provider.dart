@@ -9,7 +9,9 @@ final deliveryRepositoryProvider = Provider<DeliveryRepository>(
 );
 
 final pedidosAsignadosProvider = FutureProvider.autoDispose<List<Pedido>>(
-  (ref) => ref.read(deliveryRepositoryProvider).asignados(),
+  (ref) => ref
+      .read(deliveryRepositoryProvider)
+      .asignados(estadoRepartidor: 'ACEPTADO'),
 );
 
 final pedidoEntranteProvider = FutureProvider.autoDispose<Pedido?>(

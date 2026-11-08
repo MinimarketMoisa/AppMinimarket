@@ -66,6 +66,14 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
   Future<String> resendVerification(String email) =>
       ResendVerificationUseCase(_repo)(email);
 
+  Future<String> requestPasswordReset(String email) =>
+      _repo.requestPasswordReset(email);
+
+  Future<String> resetPassword({
+    required String token,
+    required String password,
+  }) => _repo.resetPassword(token: token, password: password);
+
   Future<void> logout() async {
     await LogoutUseCase(_repo)();
     ref.read(cartProvider.notifier).clear();

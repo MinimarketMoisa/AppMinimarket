@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/helpers.dart';
+import '../../../../core/widgets/app_error_view.dart';
 import '../providers/addresses_provider.dart';
 
 class AddressesPage extends ConsumerWidget {
@@ -24,7 +25,11 @@ class AddressesPage extends ConsumerWidget {
       ),
       body: dirs.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text(errorMessage(e))),
+        error: (e, _) => AppErrorView(
+          error: e,
+          title: 'No pudimos cargar tus direcciones',
+          onRetry: () => ref.invalidate(direccionesProvider),
+        ),
         data: (list) => list.isEmpty
             ? const Center(child: Text('Aún no tienes direcciones'))
             : ListView(
@@ -151,7 +156,11 @@ class _AddressFormState extends ConsumerState<_AddressForm> {
             const SizedBox(height: 14),
             municipios.when(
               loading: () => const LinearProgressIndicator(),
-              error: (e, _) => Text(errorMessage(e)),
+              error: (e, _) => AppErrorNotice(
+                error: e,
+                title: 'No pudimos cargar los municipios',
+                onRetry: () => ref.invalidate(municipiosProvider),
+              ),
               data: (list) => DropdownButtonFormField<int>(
                 initialValue: _municipio,
                 decoration: const InputDecoration(labelText: 'Municipio'),

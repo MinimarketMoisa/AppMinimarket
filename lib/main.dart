@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/theme/app_theme.dart';
-import 'core/utils/helpers.dart';
+import 'core/widgets/app_error_view.dart';
 import 'features/auth/presentation/providers/auth_provider.dart';
 import 'features/delivery/presentation/pages/delivery_home_page.dart';
 import 'features/shell/client_shell.dart';
@@ -41,18 +41,10 @@ class _Root extends ConsumerWidget {
           loading: () =>
               const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (error, _) => Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(errorMessage(error), textAlign: TextAlign.center),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => ref.invalidate(authProvider),
-                    child: const Text('Reintentar'),
-                  ),
-                ],
-              ),
+            body: AppErrorView(
+              error: error,
+              title: 'No pudimos abrir tu cuenta',
+              onRetry: () => ref.invalidate(authProvider),
             ),
           ),
           data: (user) {

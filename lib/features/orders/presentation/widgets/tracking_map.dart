@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -60,8 +62,14 @@ class _TrackingMapState extends State<TrackingMap> {
   TrackingMapPoint? get _branch =>
       TrackingMapPoint.fromPlace(widget.tracking?['sucursal']);
 
-  LatLng? get _initialCenter =>
-      (_rider ?? _destination ?? _branch)?.latLng;
+  double? get _riderHeading {
+    final heading = widget.tracking?['repartidor'] is Map
+        ? (widget.tracking!['repartidor'] as Map)['rumbo']
+        : null;
+    return heading is num ? heading.toDouble() : null;
+  }
+
+  LatLng? get _initialCenter => (_rider ?? _destination ?? _branch)?.latLng;
 
   @override
   void didUpdateWidget(covariant TrackingMap oldWidget) {
@@ -70,10 +78,7 @@ class _TrackingMapState extends State<TrackingMap> {
       oldWidget.tracking?['repartidor'],
     );
     final newRider = _rider;
-    if (_mapReady &&
-        _followRider &&
-        newRider != null &&
-        newRider != oldRider) {
+    if (_mapReady && _followRider && newRider != null && newRider != oldRider) {
       _mapController.move(newRider.latLng, _zoom);
     }
   }
@@ -150,10 +155,13 @@ class _TrackingMapState extends State<TrackingMap> {
                             point: rider.latLng,
                             width: 48,
                             height: 48,
-                            child: const Icon(
-                              Icons.delivery_dining,
-                              color: Colors.deepPurple,
-                              size: 42,
+                            child: Transform.rotate(
+                              angle: (_riderHeading ?? 0) * math.pi / 180,
+                              child: const Icon(
+                                Icons.navigation,
+                                color: Colors.deepPurple,
+                                size: 38,
+                              ),
                             ),
                           ),
                         if (destination != null)

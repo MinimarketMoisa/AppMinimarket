@@ -20,11 +20,42 @@ final sucursalesProvider = FutureProvider.autoDispose<List<Sucursal>>(
 final selectedCategoriaProvider = StateProvider<int?>((ref) => null);
 final searchProvider = StateProvider<String>((ref) => '');
 
-final productosProvider = FutureProvider.autoDispose<List<Producto>>((ref) {
-  final cat = ref.watch(selectedCategoriaProvider);
-  final q = ref.watch(searchProvider);
-  return ref.read(catalogRepositoryProvider).productos(categoriaId: cat, q: q);
-});
+class CatalogPageRequest {
+  const CatalogPageRequest({
+    this.categoriaId,
+    this.query = '',
+    this.skip = 0,
+    this.limit = 24,
+  });
+
+  final int? categoriaId;
+  final String query;
+  final int skip;
+  final int limit;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CatalogPageRequest &&
+      other.categoriaId == categoriaId &&
+      other.query == query &&
+      other.skip == skip &&
+      other.limit == limit;
+
+  @override
+  int get hashCode => Object.hash(categoriaId, query, skip, limit);
+}
+
+final productosProvider =
+    FutureProvider.autoDispose.family<List<Producto>, CatalogPageRequest>(
+      (ref, request) => ref
+          .read(catalogRepositoryProvider)
+          .productos(
+            categoriaId: request.categoriaId,
+            q: request.query,
+            skip: request.skip,
+            limit: request.limit,
+          ),
+    );
 
 final disponibilidadProductoProvider =
     FutureProvider.autoDispose.family<List<Disponibilidad>, int>(

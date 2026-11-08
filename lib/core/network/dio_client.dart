@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../storage/token_storage.dart';
+import 'api_endpoints.dart';
 import 'mock_api_interceptor.dart';
 import 'session_expiry.dart';
 
@@ -25,7 +26,9 @@ final dioProvider = Provider<Dio>((ref) {
             options.path.endsWith('/auth/login') ||
             options.path.endsWith('/auth/registro') ||
             options.path.endsWith('/auth/verificar-correo') ||
-            options.path.endsWith('/auth/reenviar-verificacion');
+            options.path.endsWith('/auth/reenviar-verificacion') ||
+            options.path.endsWith(ApiEndpoints.forgotPassword) ||
+            options.path.endsWith(ApiEndpoints.resetPassword);
         if (token != null && !isPublicAuthRequest) {
           options.headers['Authorization'] = 'Bearer $token';
         }
