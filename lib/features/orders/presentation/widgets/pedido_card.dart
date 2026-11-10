@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/utils/helpers.dart';
 import '../../data/models/pedido_models.dart';
@@ -24,6 +25,27 @@ class PedidoCard extends StatelessWidget {
     'cancelado' => Colors.red,
     _ => Colors.grey,
   };
+
+  Future<void> _callClient(BuildContext context) async {
+    final phone = pedido.clienteTelefono?.trim();
+    if (phone == null || phone.isEmpty) return;
+    try {
+      final launched = await launchUrl(Uri(scheme: 'tel', path: phone));
+      if (!launched && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir la aplicación de llamadas'),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('No se pudo iniciar la llamada: $error')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +81,8 @@ class PedidoCard extends StatelessWidget {
             Text(fechaCorta(pedido.fechaCreacion), style: t.bodySmall),
             if (mostrarCliente && pedido.clienteNombre != null)
               Text('Cliente: ${pedido.clienteNombre}'),
+            if (mostrarCliente && pedido.clienteTelefono != null)
+              Text('Teléfono: ${pedido.clienteTelefono}'),
             Text(
               pedido.tipoEntrega == 'domicilio'
                   ? 'A domicilio'
@@ -103,7 +127,20 @@ class PedidoCard extends StatelessWidget {
             ),
             if (actions.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 4, children: actions),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  if (mostrarCliente &&
+                      pedido.clienteTelefono?.trim().isNotEmpty == true)
+                    OutlinedButton.icon(
+                      onPressed: () => _callClient(context),
+                      icon: const Icon(Icons.call),
+                      label: const Text('Llamar al cliente'),
+                    ),
+                  ...actions,
+                ],
+              ),
             ],
           ],
         ),

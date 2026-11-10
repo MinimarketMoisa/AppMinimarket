@@ -15,7 +15,7 @@ void main() {
       'estado_pago': 'PENDIENTE',
       'costo_envio': 1.5,
       'total': 5.5,
-      'cliente': {'nombre_completo': 'Ana Pérez'},
+      'cliente': {'nombre_completo': 'Ana Pérez', 'telefono': '+503 7000-0000'},
       'destino': {'detalle_direccion': 'Colonia Centro'},
       'detalles': [
         {
@@ -32,6 +32,7 @@ void main() {
     expect(order.codigoPedido, 'PED-000012');
     expect(order.estado, 'en_ruta');
     expect(order.clienteNombre, 'Ana Pérez');
+    expect(order.clienteTelefono, '+503 7000-0000');
     expect(order.direccion, 'Colonia Centro');
     expect(order.detalles.single.productoId, 3);
   });

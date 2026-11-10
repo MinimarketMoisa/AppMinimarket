@@ -38,9 +38,18 @@ class TrackingMapPoint {
 }
 
 class TrackingMap extends StatefulWidget {
-  const TrackingMap({super.key, required this.tracking});
+  const TrackingMap({
+    super.key,
+    required this.tracking,
+    this.title = 'Ubicación del repartidor',
+    this.riderLabel = 'Repartidor',
+    this.fitRoute = false,
+  });
 
   final Map<String, dynamic>? tracking;
+  final String title;
+  final String riderLabel;
+  final bool fitRoute;
 
   @override
   State<TrackingMap> createState() => _TrackingMapState();
@@ -52,6 +61,12 @@ class _TrackingMapState extends State<TrackingMap> {
   bool _mapReady = false;
   bool _followRider = true;
   double _zoom = _initialZoom;
+
+  @override
+  void initState() {
+    super.initState();
+    _followRider = !widget.fitRoute;
+  }
 
   TrackingMapPoint? get _rider =>
       TrackingMapPoint.fromPlace(widget.tracking?['repartidor']);
@@ -96,6 +111,11 @@ class _TrackingMapState extends State<TrackingMap> {
     final destination = _destination;
     final branch = _branch;
     final center = _initialCenter;
+    final fitPoints = [
+      if (rider != null) rider.latLng,
+      if (branch != null) branch.latLng,
+      if (destination != null) destination.latLng,
+    ];
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -104,10 +124,7 @@ class _TrackingMapState extends State<TrackingMap> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Ubicación del repartidor',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             if (rider == null)
               const Padding(
@@ -129,9 +146,15 @@ class _TrackingMapState extends State<TrackingMap> {
                   options: MapOptions(
                     initialCenter: center,
                     initialZoom: _initialZoom,
+                    initialCameraFit: widget.fitRoute && fitPoints.length > 1
+                        ? CameraFit.coordinates(
+                            coordinates: fitPoints,
+                            padding: const EdgeInsets.all(48),
+                          )
+                        : null,
                     onMapReady: () {
                       _mapReady = true;
-                      if (_followRider && rider != null) {
+                      if (_followRider && rider != null && !widget.fitRoute) {
                         _mapController.move(rider.latLng, _zoom);
                       }
                     },
@@ -220,10 +243,10 @@ class _TrackingMapState extends State<TrackingMap> {
               runSpacing: 4,
               children: [
                 if (rider != null)
-                  const _MapLegend(
+                  _MapLegend(
                     icon: Icons.delivery_dining,
                     color: Colors.deepPurple,
-                    label: 'Repartidor',
+                    label: widget.riderLabel,
                   ),
                 if (destination != null)
                   const _MapLegend(

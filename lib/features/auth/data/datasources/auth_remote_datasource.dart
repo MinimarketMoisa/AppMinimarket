@@ -21,7 +21,7 @@ class AuthRemoteDataSource {
     required String nombreCompleto,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
   }) async {
     final response = await dio.post(
       ApiEndpoints.register,

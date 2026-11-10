@@ -57,6 +57,12 @@ final productosProvider =
           ),
     );
 
+final productoDetalleProvider =
+    FutureProvider.autoDispose.family<Producto, int>(
+      (ref, productoId) =>
+          ref.read(catalogRepositoryProvider).productoPorId(productoId),
+    );
+
 final disponibilidadProductoProvider =
     FutureProvider.autoDispose.family<List<Disponibilidad>, int>(
       (ref, productoId) =>

@@ -41,6 +41,11 @@ class CatalogRepository {
         .toList();
   }
 
+  Future<Producto> productoPorId(int productoId) async {
+    final response = await dio.get(ApiEndpoints.productoPorId(productoId));
+    return Producto.fromJson(response.data as Map<String, dynamic>);
+  }
+
   Future<List<Disponibilidad>> disponibilidad(int productoId) async {
     final response = await dio.get(
       ApiEndpoints.disponibilidadProducto(productoId),
@@ -48,5 +53,38 @@ class CatalogRepository {
     return (response.data as List)
         .map((item) => Disponibilidad.fromJson(item as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<void> validarInventarioPedido({
+    required Map<int, int> cantidades,
+    required Set<int> sucursalesCandidatas,
+  }) async {
+    if (sucursalesCandidatas.isEmpty) {
+      throw StateError('No hay sucursales activas para esta zona.');
+    }
+
+    final disponibilidades = <int, List<Disponibilidad>>{};
+    await Future.wait(
+      cantidades.keys.map((productoId) async {
+        disponibilidades[productoId] = await disponibilidad(productoId);
+      }),
+    );
+    final hayUnaSucursalQueCubreTodo = sucursalesCandidatas.any((sucursalId) {
+      for (final entry in cantidades.entries) {
+        final stock = disponibilidades[entry.key]!
+            .where((item) => item.sucursalId == sucursalId)
+            .fold<int>(0, (total, item) => total + item.stockDisponible);
+        if (stock < entry.value) return false;
+      }
+      return true;
+    });
+
+    if (!hayUnaSucursalQueCubreTodo) {
+      throw StateError(
+        'Ninguna sucursal de la zona tiene existencias suficientes para '
+        'completar todo el carrito. Reduce las cantidades o quita productos '
+        'y vuelve a intentar.',
+      );
+    }
   }
 }

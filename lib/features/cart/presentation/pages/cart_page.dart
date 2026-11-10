@@ -5,9 +5,9 @@ import '../../../../core/utils/helpers.dart';
 import '../../../../core/widgets/app_error_view.dart';
 import '../../../auth/presentation/pages/login_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../addresses/presentation/providers/addresses_provider.dart';
 import '../../../catalog/presentation/providers/catalog_provider.dart';
 import '../../../addresses/presentation/pages/addresses_page.dart';
-import '../../../addresses/presentation/providers/addresses_provider.dart';
 import '../../../orders/presentation/providers/orders_provider.dart';
 import '../providers/cart_provider.dart';
 
@@ -154,6 +154,144 @@ class _CartPageState extends ConsumerState<CartPage> {
     super.dispose();
   }
 
+  Future<void> _validarDisponibilidad(List<CartItem> items) async {
+    final branches = await ref.read(catalogRepositoryProvider).sucursales();
+    late final Set<int> candidateBranchIds;
+
+    if (_entrega == 'retiro') {
+      candidateBranchIds = {_sucursalId!};
+    } else {
+      final addresses = ref.read(direccionesProvider).value;
+      final selectedAddresses = addresses
+          ?.where((address) => address.id == _dirId)
+          .toList();
+      if (selectedAddresses == null || selectedAddresses.isEmpty) {
+        throw StateError(
+          'No encontramos la dirección seleccionada. Actualiza tus '
+          'direcciones e inténtalo de nuevo.',
+        );
+      }
+      final municipalityId = selectedAddresses.first.municipioId;
+      candidateBranchIds = branches
+          .where((branch) => branch.municipioId == municipalityId)
+          .map((branch) => branch.id)
+          .toSet();
+    }
+
+    await ref
+        .read(catalogRepositoryProvider)
+        .validarInventarioPedido(
+          cantidades: {
+            for (final item in items) item.producto.id: item.cantidad,
+          },
+          sucursalesCandidatas: candidateBranchIds,
+        );
+  }
+
+  Widget _checkoutPanel(double subtotal, String paymentMethod) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(top: BorderSide(color: colors.outlineVariant)),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  const Expanded(child: Text('Subtotal')),
+                  Text(
+                    money(subtotal),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              if (_entrega == 'domicilio') ...[
+                const SizedBox(height: 4),
+                const Row(
+                  children: [
+                    Expanded(child: Text('Envío')),
+                    Text('Se calcula al confirmar'),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Total estimado',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Text(
+                      'Se confirma al realizar el pedido',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Total',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    Text(
+                      money(subtotal),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _confirmar,
+                  icon: _loading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.lock_outline),
+                  label: Text(
+                    _pedidoTarjetaPendiente != null
+                        ? 'Reintentar pago'
+                        : paymentMethod == 'tarjeta'
+                        ? 'Pagar con tarjeta'
+                        : 'Confirmar pedido',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmar() async {
     if (ref.read(authProvider).value == null) {
       await Navigator.of(context)
@@ -185,6 +323,9 @@ class _CartPageState extends ConsumerState<CartPage> {
     if (metodoPago == 'tarjeta' && !_validarTarjeta()) return;
     setState(() => _loading = true);
     try {
+      if (_pedidoTarjetaPendiente == null) {
+        await _validarDisponibilidad(items);
+      }
       final repository = ref.read(ordersRepositoryProvider);
       if (metodoPago == 'tarjeta') {
         final pedidoId =
@@ -415,7 +556,7 @@ class _CartPageState extends ConsumerState<CartPage> {
     }
     if (user == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Carrito')),
+        appBar: AppBar(title: const Text('Tu carrito')),
         body: ListView(
           padding: const EdgeInsets.all(12),
           children: [
@@ -480,6 +621,7 @@ class _CartPageState extends ConsumerState<CartPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Carrito')),
+      bottomNavigationBar: _checkoutPanel(subtotal, metodoPagoSeleccionado),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
         children: [
@@ -749,71 +891,7 @@ class _CartPageState extends ConsumerState<CartPage> {
               ),
             ),
           ),
-          const SizedBox(height: 20),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(child: Text('Subtotal')),
-                      Text(money(subtotal)),
-                    ],
-                  ),
-                  if (_entrega == 'domicilio') ...[
-                    const SizedBox(height: 8),
-                    const Row(
-                      children: [
-                        Expanded(child: Text('Envío')),
-                        Text('Se calcula al confirmar'),
-                      ],
-                    ),
-                  ],
-                  const Divider(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _entrega == 'domicilio' ? 'Total estimado' : 'Total',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      Text(
-                        money(subtotal),
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: _loading ? null : _confirmar,
-            icon: _loading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.check),
-            label: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                _pedidoTarjetaPendiente != null
-                    ? 'Reintentar pago'
-                    : metodoPagoSeleccionado == 'tarjeta'
-                    ? 'Pagar con tarjeta'
-                    : 'Confirmar pedido',
-              ),
-            ),
-          ),
         ],
       ),
     );

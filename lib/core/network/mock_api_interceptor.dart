@@ -48,11 +48,13 @@ class MockApiInterceptor extends Interceptor {
   final List<Map<String, dynamic>> _sucursales = [
     {
       'id_sucursal': 1,
+      'id_municipio': 1,
       'nombre': 'Minimarket San Miguel',
       'direccion': 'San Miguel',
     },
     {
       'id_sucursal': 2,
+      'id_municipio': 2,
       'nombre': 'Minimarket Moncagua',
       'direccion': 'Moncagua',
     },
@@ -245,6 +247,7 @@ class MockApiInterceptor extends Interceptor {
       'codigo_pedido': 'PED-${pedidoId.toString().padLeft(6, '0')}',
       'cliente_id': clienteId,
       'cliente_nombre': cliente['nombre_completo'],
+      'cliente_telefono': cliente['telefono'],
       'repartidor_id': domicilio && clienteId != 3 ? 3 : null,
       'estado_repartidor':
           estadoRepartidor ?? (domicilio && clienteId != 3 ? 'ASIGNADO' : null),
@@ -297,6 +300,10 @@ class MockApiInterceptor extends Interceptor {
       };
     }
     if (path == ApiEndpoints.register && m == 'POST') {
+      final phone = (body['telefono'] as String? ?? '').trim();
+      if (phone.length < 7 || phone.length > 20) {
+        throw _MockError(422, 'Ingresa un teléfono válido');
+      }
       if (_users.any((u) => u['email'] == body['email'])) {
         throw _MockError(400, 'El correo ya está registrado');
       }
@@ -305,7 +312,7 @@ class MockApiInterceptor extends Interceptor {
         'nombre_completo': body['nombre_completo'],
         'email': body['email'],
         'password': body['password'],
-        'telefono': body['telefono'],
+        'telefono': phone,
         'rol': 'cliente',
         'email_verificado': false,
       };
@@ -436,6 +443,13 @@ class MockApiInterceptor extends Interceptor {
           'stock_disponible': row['stock_disponible'],
         };
       }).toList();
+    }
+    final productDetail = RegExp(r'^/productos/(\d+)$').firstMatch(path);
+    if (productDetail != null && m == 'GET') {
+      final productId = int.parse(productDetail.group(1)!);
+      final product = _productos.where((item) => item['id'] == productId);
+      if (product.isEmpty) throw _MockError(404, 'Producto no existe');
+      return product.first;
     }
     if (path == ApiEndpoints.sucursales) return _sucursales;
     if (me == null) throw _MockError(401, 'No autenticado');

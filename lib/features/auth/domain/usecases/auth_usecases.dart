@@ -15,7 +15,7 @@ class RegisterUseCase {
     required String nombreCompleto,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
   }) => _repo.register(
     nombreCompleto: nombreCompleto,
     email: email,

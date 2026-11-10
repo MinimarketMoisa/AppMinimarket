@@ -25,6 +25,22 @@ void main() {
     expect(errorMessage(responseError(403)), contains('verificación'));
   });
 
+  test('explains unavailable cart products returned by the order API', () {
+    final request = RequestOptions(path: '/pedidos');
+    final error = DioException(
+      requestOptions: request,
+      response: Response(
+        requestOptions: request,
+        statusCode: 404,
+        data: {'detail': 'Productos no disponibles: [14]'},
+      ),
+      type: DioExceptionType.badResponse,
+    );
+
+    expect(errorMessage(error), contains('productos del carrito'));
+    expect(errorMessage(error), contains('Actualiza el catálogo'));
+  });
+
   test('does not expose raw API validation details or status codes', () {
     final error = DioException(
       requestOptions: RequestOptions(path: '/pedidos'),

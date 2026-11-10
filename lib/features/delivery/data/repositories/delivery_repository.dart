@@ -23,6 +23,11 @@ class DeliveryRepository {
         .toList();
   }
 
+  Future<Map<String, dynamic>> seguimiento(int pedidoId) async {
+    final response = await dio.get(ApiEndpoints.seguimientoPedido(pedidoId));
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   Future<void> cambiarEstado(String estado) =>
       dio.patch(ApiEndpoints.repartidorEstado, data: {'estado': estado});
 

@@ -27,6 +27,37 @@ String estadoLabel(String e) =>
     }[e] ??
     e;
 
+String? _knownNotFoundMessage(dynamic responseData) {
+  if (responseData is! Map || responseData['detail'] is! String) return null;
+  final detail = responseData['detail'] as String;
+  if (detail.startsWith('Productos no disponibles:')) {
+    return 'Uno o más productos del carrito ya no están disponibles. '
+        'Actualiza el catálogo y revisa tu carrito antes de volver a comprar.';
+  }
+  return switch (detail) {
+    'No hay sucursales disponibles para esa zona' =>
+      'No hay una sucursal que cubra la dirección seleccionada. '
+          'Elige otra dirección o contacta a Minimarket.',
+    'Dirección no encontrada' =>
+      'No encontramos esa dirección para tu cuenta. '
+          'Actualiza tus direcciones e inténtalo de nuevo.',
+    'Producto no existe' =>
+      'Uno de los productos del carrito ya no existe. '
+          'Actualiza el catálogo y revisa tu carrito.',
+    _ => null,
+  };
+}
+
+String? _knownConflictMessage(dynamic responseData) {
+  if (responseData is! Map || responseData['detail'] is! String) return null;
+  final detail = responseData['detail'] as String;
+  if (detail.startsWith('Ninguna sucursal tiene stock suficiente')) {
+    return 'Las existencias cambiaron antes de confirmar el pedido. '
+        'Revisa tu carrito y vuelve a intentar.';
+  }
+  return null;
+}
+
 /// Convierte cualquier error en un mensaje legible para el usuario.
 String errorMessage(Object e) {
   if (e is DioException) {
@@ -37,11 +68,13 @@ String errorMessage(Object e) {
       case 403:
         return 'Tu cuenta necesita una verificación adicional para continuar.';
       case 404:
-        return 'No encontramos lo que buscabas. Actualiza la pantalla e inténtalo otra vez.';
+        return _knownNotFoundMessage(e.response?.data) ??
+            'No encontramos lo que buscabas. Actualiza la pantalla e inténtalo otra vez.';
       case 400:
         return 'No pudimos completar la solicitud. Revisa la información e inténtalo de nuevo.';
       case 409:
-        return 'Esta acción ya no está disponible. Actualiza la pantalla e inténtalo de nuevo.';
+        return _knownConflictMessage(e.response?.data) ??
+            'Esta acción ya no está disponible. Actualiza la pantalla e inténtalo de nuevo.';
       case 422:
         return 'Algunos datos no son válidos. Revísalos e inténtalo de nuevo.';
       case 429:

@@ -6,7 +6,7 @@ abstract class AuthRepository {
     required String nombreCompleto,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
   });
   Future<String> applyAsCourier({
     required String nombreCompleto,

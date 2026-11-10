@@ -49,7 +49,18 @@ class _CatalogPageState extends ConsumerState<CatalogPage> {
         .firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Catálogo')),
+      appBar: AppBar(
+        title: const Text('Catálogo'),
+        actions: [
+      Padding(
+        padding: const EdgeInsets.only(right: 12),
+        child: Icon(
+          Icons.shopping_basket_outlined,
+          color: theme.colorScheme.primary,
+        ),
+      ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(

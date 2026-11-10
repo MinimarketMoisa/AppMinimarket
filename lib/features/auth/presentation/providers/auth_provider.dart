@@ -36,7 +36,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     required String nombreCompleto,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
   }) async {
     return RegisterUseCase(_repo)(
       nombreCompleto: nombreCompleto,

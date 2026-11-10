@@ -42,7 +42,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             nombreCompleto: _nombre.text.trim(),
             email: _email.text.trim(),
             password: _pass.text,
-            telefono: _tel.text.trim().isEmpty ? null : _tel.text.trim(),
+            telefono: _tel.text.trim(),
           );
       if (mounted) {
         await Navigator.of(context).pushReplacement(
@@ -97,9 +97,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   TextFormField(
                     controller: _tel,
                     keyboardType: TextInputType.phone,
+                    maxLength: 20,
                     decoration: const InputDecoration(
-                      labelText: 'Teléfono (opcional)',
+                      labelText: 'Teléfono',
                     ),
+                    validator: (value) =>
+                        value == null || value.trim().length < 7
+                        ? 'Ingresa un teléfono válido'
+                        : null,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(

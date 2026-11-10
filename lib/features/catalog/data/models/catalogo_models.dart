@@ -15,17 +15,20 @@ class Categoria {
 
 class Sucursal {
   final int id;
+  final int municipioId;
   final String nombre;
   final String direccion;
 
   const Sucursal({
     required this.id,
+    required this.municipioId,
     required this.nombre,
     required this.direccion,
   });
 
   factory Sucursal.fromJson(Map<String, dynamic> j) => Sucursal(
     id: j['id_sucursal'] ?? j['id'],
+    municipioId: j['id_municipio'] ?? j['municipio_id'] ?? 0,
     nombre: j['nombre'] ?? '',
     direccion: j['direccion'] ?? '',
   );

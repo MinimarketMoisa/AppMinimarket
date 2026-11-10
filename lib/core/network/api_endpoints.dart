@@ -14,6 +14,7 @@ class ApiEndpoints {
   // Catálogo
   static const categorias = '/categorias'; // GET
   static const productos = '/productos'; // GET ?id_categoria=&q=
+  static String productoPorId(int id) => '/productos/$id'; // GET
   static String disponibilidadProducto(int id) =>
       '/productos/$id/disponibilidad'; // GET por sucursal
 

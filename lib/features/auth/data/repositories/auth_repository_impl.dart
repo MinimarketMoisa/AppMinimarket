@@ -27,7 +27,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String nombreCompleto,
     required String email,
     required String password,
-    String? telefono,
+    required String telefono,
   }) async {
     return _remote.register(
       nombreCompleto: nombreCompleto,

@@ -9,6 +9,7 @@ import '../../../../core/network/session_expiry.dart';
 import '../../../../core/utils/helpers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../orders/presentation/widgets/pedido_card.dart';
+import '../../../orders/presentation/widgets/tracking_map.dart';
 import '../providers/delivery_provider.dart';
 
 class DeliveryHomePage extends ConsumerStatefulWidget {
@@ -22,6 +23,10 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
   StreamSubscription<Position>? _locationSubscription;
   Timer? _locationTimer;
   Position? _latestPosition;
+  Map<String, dynamic>? _deliveryTracking;
+  Object? _trackingError;
+  int? _trackingOrderId;
+  bool _trackingLoading = false;
   bool _sendingLocation = false;
   bool _startingLocationSharing = false;
   bool _sharingLocation = false;
@@ -103,7 +108,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
           timeLimit: const Duration(seconds: 20),
         ),
       );
-      _latestPosition = position;
+      _updateLocalPosition(position);
       await _sendLocation(position);
       if (!mounted) return;
       setState(() => _sharingLocation = true);
@@ -111,14 +116,14 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
           Geolocator.getPositionStream(
             locationSettings: _backgroundLocationSettings(),
           ).listen(
-            (position) => _latestPosition = position,
+            _updateLocalPosition,
             onError: (Object error) {
               _stopLocationSharing();
               _msg(errorMessage(error));
             },
           );
       _locationTimer?.cancel();
-      _locationTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      _locationTimer = Timer.periodic(const Duration(seconds: 5), (_) {
         final latestPosition = _latestPosition;
         if (latestPosition != null) unawaited(_sendLocation(latestPosition));
       });
@@ -127,6 +132,87 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
     } finally {
       _startingLocationSharing = false;
     }
+  }
+
+  void _updateLocalPosition(Position position) {
+    _latestPosition = position;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadDeliveryTracking(int pedidoId) async {
+    if (_trackingOrderId == pedidoId &&
+        (_deliveryTracking != null || _trackingLoading)) {
+      return;
+    }
+    setState(() {
+      _trackingOrderId = pedidoId;
+      _deliveryTracking = null;
+      _trackingError = null;
+      _trackingLoading = true;
+    });
+    try {
+      final tracking = await ref
+          .read(deliveryRepositoryProvider)
+          .seguimiento(pedidoId);
+      if (!mounted || _trackingOrderId != pedidoId) return;
+      setState(() {
+        _deliveryTracking = tracking;
+        _trackingLoading = false;
+      });
+    } catch (error) {
+      if (!mounted || _trackingOrderId != pedidoId) return;
+      setState(() {
+        _trackingError = error;
+        _trackingLoading = false;
+      });
+    }
+  }
+
+  Widget _deliveryRouteSection() {
+    final tracking = _deliveryTracking;
+    if (tracking != null) {
+      final position = _latestPosition;
+      final rider = tracking['repartidor'];
+      final trackingWithMyPosition = position == null
+          ? tracking
+          : {
+              ...tracking,
+              'repartidor': {
+                if (rider is Map) ...Map<String, dynamic>.from(rider),
+                'latitud': position.latitude,
+                'longitud': position.longitude,
+                'rumbo': position.heading,
+                'velocidad': position.speed,
+              },
+            };
+      return TrackingMap(
+        tracking: trackingWithMyPosition,
+        title: 'Ruta de entrega',
+        riderLabel: 'Tu ubicación',
+        fitRoute: true,
+      );
+    }
+    if (_trackingError != null) {
+      return Card(
+        child: ListTile(
+          title: const Text('No se pudo cargar la ruta'),
+          subtitle: Text(errorMessage(_trackingError!)),
+          trailing: IconButton(
+            tooltip: 'Reintentar',
+            onPressed: _trackingOrderId == null || _trackingLoading
+                ? null
+                : () => _loadDeliveryTracking(_trackingOrderId!),
+            icon: const Icon(Icons.refresh),
+          ),
+        ),
+      );
+    }
+    return const Card(
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: LinearProgressIndicator(),
+      ),
+    );
   }
 
   LocationSettings _backgroundLocationSettings() {
@@ -237,6 +323,8 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
     try {
       await ref.read(deliveryRepositoryProvider).aceptar(pedidoId);
       if (!mounted) return;
+      setState(() => _hasActiveDelivery = true);
+      unawaited(_loadDeliveryTracking(pedidoId));
       ref.invalidate(pedidoEntranteProvider);
       ref.invalidate(pedidosAsignadosProvider);
       _msg('Pedido aceptado');
@@ -316,13 +404,21 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
     });
     ref.listen(pedidosAsignadosProvider, (_, next) {
       next.whenData((list) {
-        _hasActiveDelivery = list.any(
-          (pedido) =>
-              pedido.estado != 'entregado' && pedido.estado != 'cancelado',
-        );
+        final activeOrders = list
+            .where(
+              (pedido) =>
+                  pedido.estado != 'entregado' && pedido.estado != 'cancelado',
+            )
+            .toList();
+        _hasActiveDelivery = activeOrders.isNotEmpty;
         if (_hasActiveDelivery) {
+          unawaited(_loadDeliveryTracking(activeOrders.first.id));
           _startLocationSharing();
         } else {
+          _trackingOrderId = null;
+          _deliveryTracking = null;
+          _trackingError = null;
+          _trackingLoading = false;
           _stopLocationSharing();
         }
       });
@@ -472,6 +568,7 @@ class _DeliveryHomePageState extends ConsumerState<DeliveryHomePage> {
                             ],
                           ),
                   ),
+                  if (_hasActiveDelivery) _deliveryRouteSection(),
                   pedidos.when(
                     loading: () => const Padding(
                       padding: EdgeInsets.all(32),

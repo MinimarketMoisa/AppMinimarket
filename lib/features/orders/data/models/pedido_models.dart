@@ -37,6 +37,7 @@ class Pedido {
   final double total;
   final String? direccion;
   final String? clienteNombre;
+  final String? clienteTelefono;
   final List<DetallePedido> detalles;
 
   const Pedido({
@@ -52,6 +53,7 @@ class Pedido {
     required this.total,
     this.direccion,
     this.clienteNombre,
+    this.clienteTelefono,
     required this.detalles,
   });
 
@@ -75,6 +77,11 @@ class Pedido {
         j['cliente_nombre'] ??
         (j['cliente'] is Map<String, dynamic>
             ? (j['cliente'] as Map<String, dynamic>)['nombre_completo']
+            : null),
+    clienteTelefono:
+        j['cliente_telefono'] ??
+        (j['cliente'] is Map<String, dynamic>
+            ? (j['cliente'] as Map<String, dynamic>)['telefono']
             : null),
     detalles: ((j['detalles'] ?? []) as List)
         .map((e) => DetallePedido.fromJson(e as Map<String, dynamic>))
