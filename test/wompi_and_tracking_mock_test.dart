@@ -94,22 +94,16 @@ void main() {
     },
   );
 
-  test('password recovery changes the mock account password', () async {
+  test('password recovery requests the browser reset link', () async {
     final requested = await dio.post(
       ApiEndpoints.forgotPassword,
       data: {'email': 'cliente@demo.com'},
     );
     expect(requested.data['mensaje'], contains('Si el correo está registrado'));
 
-    final updated = await dio.post(
-      ApiEndpoints.resetPassword,
-      data: {'token': 'mock-reset-1', 'password': 'NuevaClave123'},
-    );
-    expect(updated.data['mensaje'], contains('actualizada'));
-
     final response = await dio.post(
       ApiEndpoints.login,
-      data: {'username': 'cliente@demo.com', 'password': 'NuevaClave123'},
+      data: {'username': 'cliente@demo.com', 'password': '123456'},
     );
     expect(response.data['access_token'], 'mock-1');
   });

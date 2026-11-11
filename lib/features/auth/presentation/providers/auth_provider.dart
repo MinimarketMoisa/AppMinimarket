@@ -36,7 +36,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     required String nombreCompleto,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
   }) async {
     return RegisterUseCase(_repo)(
       nombreCompleto: nombreCompleto,
@@ -60,8 +60,7 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
     placaVehiculo: placaVehiculo,
   );
 
-  Future<String> verifyEmail(String token) =>
-      VerifyEmailUseCase(_repo)(token);
+  Future<bool> isEmailVerified(String email) => _repo.isEmailVerified(email);
 
   Future<String> resendVerification(String email) =>
       ResendVerificationUseCase(_repo)(email);
@@ -69,10 +68,13 @@ class AuthNotifier extends AsyncNotifier<UserEntity?> {
   Future<String> requestPasswordReset(String email) =>
       _repo.requestPasswordReset(email);
 
-  Future<String> resetPassword({
-    required String token,
+  Future<String> requestEmailChange({
+    required String newEmail,
     required String password,
-  }) => _repo.resetPassword(token: token, password: password);
+  }) => _repo.requestEmailChange(newEmail: newEmail, password: password);
+
+  Future<String> confirmEmailChange(String token) =>
+      _repo.confirmEmailChange(token);
 
   Future<void> logout() async {
     await LogoutUseCase(_repo)();

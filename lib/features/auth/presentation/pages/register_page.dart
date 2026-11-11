@@ -98,13 +98,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     controller: _tel,
                     keyboardType: TextInputType.phone,
                     maxLength: 20,
-                    decoration: const InputDecoration(
-                      labelText: 'Teléfono',
-                    ),
-                    validator: (value) =>
-                        value == null || value.trim().length < 7
-                        ? 'Ingresa un teléfono válido'
-                        : null,
+                    decoration: const InputDecoration(labelText: 'Teléfono'),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(

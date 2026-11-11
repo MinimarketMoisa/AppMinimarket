@@ -21,17 +21,17 @@ class AuthRemoteDataSource {
     required String nombreCompleto,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
   }) async {
-    final response = await dio.post(
-      ApiEndpoints.register,
-      data: {
-        'nombre_completo': nombreCompleto,
-        'email': email,
-        'password': password,
-        'telefono': telefono,
-      },
-    );
+    final requestData = <String, dynamic>{
+      'nombre_completo': nombreCompleto,
+      'email': email,
+      'password': password,
+    };
+    if (telefono != null && telefono.trim().isNotEmpty) {
+      requestData['telefono'] = telefono.trim();
+    }
+    final response = await dio.post(ApiEndpoints.register, data: requestData);
     final data = response.data;
     return data is Map ? data['mensaje']?.toString() : null;
   }
@@ -55,20 +55,22 @@ class AuthRemoteDataSource {
     );
     final data = response.data;
     return data is Map
-        ? data['mensaje']?.toString() ??
-              'Solicitud enviada para revisión.'
+        ? data['mensaje']?.toString() ?? 'Solicitud enviada para revisión.'
         : 'Solicitud enviada para revisión.';
   }
 
-  Future<String> verifyEmail(String token) async {
-    final response = await dio.post(
-      ApiEndpoints.verifyEmail,
-      data: {'token': token},
+  Future<bool> isEmailVerified(String email) async {
+    final response = await dio.get(
+      ApiEndpoints.verificationStatus,
+      queryParameters: {'email': email},
     );
     final data = response.data;
-    return data is Map
-        ? data['mensaje']?.toString() ?? 'Correo verificado correctamente.'
-        : 'Correo verificado correctamente.';
+    if (data is! Map || data['email_verificado'] is! bool) {
+      throw const FormatException(
+        'La respuesta de verificación del correo no es válida.',
+      );
+    }
+    return data['email_verificado'] as bool;
   }
 
   Future<String> resendVerification(String email) async {
@@ -89,23 +91,33 @@ class AuthRemoteDataSource {
     );
     final data = response.data;
     return data is Map
-        ? data['mensaje']?.toString() ??
-              'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.'
+        ? data['mensaje']?.toString() ?? 'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.'
         : 'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.';
   }
 
-  Future<String> resetPassword({
-    required String token,
+  Future<String> requestEmailChange({
+    required String newEmail,
     required String password,
   }) async {
     final response = await dio.post(
-      ApiEndpoints.resetPassword,
-      data: {'token': token, 'password': password},
+      ApiEndpoints.requestEmailChange,
+      data: {'nuevo_email': newEmail, 'password': password},
     );
     final data = response.data;
     return data is Map
-        ? data['mensaje']?.toString() ?? 'Tu contraseña fue actualizada.'
-        : 'Tu contraseña fue actualizada.';
+        ? data['mensaje']?.toString() ?? 'Código enviado al nuevo correo.'
+        : 'Código enviado al nuevo correo.';
+  }
+
+  Future<String> confirmEmailChange(String token) async {
+    final response = await dio.post(
+      ApiEndpoints.confirmEmailChange,
+      data: {'token': token},
+    );
+    final data = response.data;
+    return data is Map
+        ? data['mensaje']?.toString() ?? 'Correo actualizado correctamente.'
+        : 'Correo actualizado correctamente.';
   }
 
   Future<UserModel> me() async {

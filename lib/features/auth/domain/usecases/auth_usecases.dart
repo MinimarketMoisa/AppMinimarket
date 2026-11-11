@@ -15,7 +15,7 @@ class RegisterUseCase {
     required String nombreCompleto,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
   }) => _repo.register(
     nombreCompleto: nombreCompleto,
     email: email,
@@ -41,13 +41,6 @@ class ApplyAsCourierUseCase {
     telefono: telefono,
     placaVehiculo: placaVehiculo,
   );
-}
-
-class VerifyEmailUseCase {
-  final AuthRepository _repo;
-  VerifyEmailUseCase(this._repo);
-
-  Future<String> call(String token) => _repo.verifyEmail(token);
 }
 
 class ResendVerificationUseCase {

@@ -27,7 +27,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String nombreCompleto,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
   }) async {
     return _remote.register(
       nombreCompleto: nombreCompleto,
@@ -53,7 +53,7 @@ class AuthRepositoryImpl implements AuthRepository {
   );
 
   @override
-  Future<String> verifyEmail(String token) => _remote.verifyEmail(token);
+  Future<bool> isEmailVerified(String email) => _remote.isEmailVerified(email);
 
   @override
   Future<String> resendVerification(String email) =>
@@ -64,10 +64,14 @@ class AuthRepositoryImpl implements AuthRepository {
       _remote.requestPasswordReset(email);
 
   @override
-  Future<String> resetPassword({
-    required String token,
+  Future<String> requestEmailChange({
+    required String newEmail,
     required String password,
-  }) => _remote.resetPassword(token: token, password: password);
+  }) => _remote.requestEmailChange(newEmail: newEmail, password: password);
+
+  @override
+  Future<String> confirmEmailChange(String token) =>
+      _remote.confirmEmailChange(token);
 
   @override
   Future<UserEntity?> currentUser() async {

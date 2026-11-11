@@ -22,11 +22,16 @@ sigue siendo responsable de autorizar las operaciones del rol.
 |---|---|---|
 | Iniciar sesión | POST `/auth/login` | Form: `username`, `password` |
 | Registrar cliente | POST `/auth/registro` | `nombre_completo`, `email`, `password`, `telefono` opcional; requiere verificación antes de iniciar sesión |
+| Consultar verificación | GET `/auth/estado-verificacion` | Query: `email`; `email_verificado`, `activo` |
+| Reenviar verificación | POST `/auth/reenviar-verificacion` | JSON: `{"email":"..."}` |
+| Verificar correo (enlace de correo) | GET `/auth/verificar-correo?token=...` | Navegador; la app consulta el estado al volver |
+| Solicitar recuperación | POST `/auth/olvide-contrasena` | JSON: `{"email":"..."}`; el enlace se completa en el navegador |
+| Restablecer contraseña (enlace de correo) | GET `/auth/restablecer-contrasena?token=...` | Navegador; no se captura el token en Flutter |
+| Solicitar cambio de correo | POST `/auth/solicitar-cambio-email` | Autenticado; `nuevo_email`, `password` |
+| Confirmar cambio de correo | POST `/auth/confirmar-cambio-email` | Autenticado; JSON: `{"token":"..."}`; luego se cierra la sesión |
 | Postularse como repartidor | POST `/repartidor/solicitudes` | `nombre_completo`, `email`, `password`, `telefono`, `placa_vehiculo` opcional; acceso pendiente de aprobación |
 | Revisar postulaciones | GET `/repartidor/solicitudes` | Solo ADMIN; lista postulaciones pendientes |
 | Aprobar / rechazar postulación | PATCH `/repartidor/solicitudes/{id}/aprobar`, POST `/repartidor/solicitudes/{id}/rechazar` | Solo ADMIN; al aprobar crea el usuario y perfil de repartidor |
-| Verificar correo | POST `/auth/verificar-correo` | JSON: `{"token":"..."}` |
-| Reenviar verificación | POST `/auth/reenviar-verificacion` | JSON: `{"email":"..."}` |
 | Usuario autenticado | GET `/auth/me` | `id_usuario`, `nombre_completo`, `email`, `rol` |
 | Categorías / catálogo | GET `/categorias`, `/productos` | Filtros `id_categoria`, `q` |
 | Stock por sucursal | GET `/productos/{id_producto}/disponibilidad` | `id_sucursal`, `nombre_sucursal`, `stock_disponible` |
@@ -57,8 +62,13 @@ repartidor no obtienen acceso hasta que un administrador las aprueba.
 
 La app se ajusta al OpenAPI publicado por el host desplegado. El flujo de
 registro muestra la pantalla de verificación y no inicia sesión automáticamente.
-Si el correo no llega, se puede solicitar un reenvío desde esa pantalla. La
-entrega efectiva del correo depende de la configuración SMTP/correo del backend.
+El enlace de verificación y el de restablecimiento se completan en las páginas
+HTML servidas por la API; la app consulta el estado del correo y no solicita ni
+envía tokens de restablecimiento. Si el correo de verificación no llega, se
+puede solicitar un reenvío desde la pantalla de espera. Cambiar el correo
+requiere pegar el código recibido en la app; tras confirmarlo, la app elimina
+el JWT local y vuelve al inicio de sesión. La entrega efectiva de correos
+depende de la configuración SMTP del backend.
 `ProductoOut` no
 declara stock; la app obtiene ese dato desde la ruta de disponibilidad por
 sucursal. El seguimiento móvil usa la ruta REST documentada y no depende de

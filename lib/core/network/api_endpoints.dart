@@ -4,12 +4,14 @@ class ApiEndpoints {
   static const login = '/auth/login'; // POST form: username(email), password
   static const register = '/auth/registro'; // POST json
   static const me = '/auth/me'; // GET
-  static const verifyEmail = '/auth/verificar-correo'; // POST {token}
+  static const verificationStatus = '/auth/estado-verificacion'; // GET ?email=
   static const resendVerification =
       '/auth/reenviar-verificacion'; // POST {email}
   static const forgotPassword = '/auth/olvide-contrasena'; // POST {email}
-  static const resetPassword =
-      '/auth/restablecer-contrasena'; // POST {token, password}
+  static const requestEmailChange =
+      '/auth/solicitar-cambio-email'; // POST {nuevo_email, password}
+  static const confirmEmailChange =
+      '/auth/confirmar-cambio-email'; // POST {token}
 
   // Catálogo
   static const categorias = '/categorias'; // GET

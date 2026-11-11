@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../addresses/presentation/pages/addresses_page.dart';
+import 'change_email_page.dart';
 import 'driver_application_page.dart';
 import 'login_page.dart';
 import 'register_page.dart';
@@ -103,6 +104,14 @@ class ProfilePage extends ConsumerWidget {
           if (user.telefono != null) Center(child: Text(user.telefono!)),
           const SizedBox(height: 16),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.alternate_email),
+            title: const Text('Cambiar correo electrónico'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ChangeEmailPage())),
+          ),
           ListTile(
             leading: const Icon(Icons.location_on_outlined),
             title: const Text('Mis direcciones'),

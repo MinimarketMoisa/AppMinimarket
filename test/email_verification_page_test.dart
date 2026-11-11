@@ -1,33 +1,41 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:minimarket/features/auth/domain/entities/user_entity.dart';
 import 'package:minimarket/features/auth/domain/repositories/auth_repository.dart';
+import 'package:minimarket/features/auth/presentation/pages/change_email_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/driver_application_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/email_verification_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/forgot_password_page.dart';
+import 'package:minimarket/features/auth/presentation/pages/login_page.dart';
 import 'package:minimarket/features/auth/presentation/pages/profile_page.dart';
 import 'package:minimarket/features/auth/presentation/providers/auth_provider.dart';
 
 class _FakeAuthRepository implements AuthRepository {
-  String? verifiedToken;
   String? resentEmail;
   String? applicantEmail;
   String? resetRequestEmail;
-  String? resetToken;
-  String? resetPasswordValue;
+  String? verificationStatusEmail;
+  String? newEmailRequested;
+  String? emailChangePassword;
+  String? emailChangeToken;
+  bool emailVerified = false;
+  Object? loginFailure;
 
   @override
   Future<UserEntity?> currentUser() async => null;
 
   @override
-  Future<UserEntity> login(String email, String password) async =>
-      const UserEntity(
-        id: 1,
-        nombreCompleto: 'Cliente',
-        email: 'cliente@example.com',
-        rol: 'cliente',
-      );
+  Future<UserEntity> login(String email, String password) async {
+    if (loginFailure != null) throw loginFailure!;
+    return const UserEntity(
+      id: 1,
+      nombreCompleto: 'Cliente',
+      email: 'cliente@example.com',
+      rol: 'cliente',
+    );
+  }
 
   @override
   Future<void> logout() async {}
@@ -65,19 +73,26 @@ class _FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<String> resetPassword({
-    required String token,
-    required String password,
-  }) async {
-    resetToken = token;
-    resetPasswordValue = password;
-    return 'Contraseña actualizada.';
+  @override
+  Future<bool> isEmailVerified(String email) async {
+    verificationStatusEmail = email;
+    return emailVerified;
   }
 
   @override
-  Future<String> verifyEmail(String token) async {
-    verifiedToken = token;
-    return 'Correo verificado.';
+  Future<String> requestEmailChange({
+    required String newEmail,
+    required String password,
+  }) async {
+    newEmailRequested = newEmail;
+    emailChangePassword = password;
+    return 'Código enviado al nuevo correo.';
+  }
+
+  @override
+  Future<String> confirmEmailChange(String token) async {
+    emailChangeToken = token;
+    return 'Correo actualizado.';
   }
 }
 
@@ -155,14 +170,16 @@ void main() {
       ),
     );
 
-    await tester.tap(find.text('Reenviar correo de verificación'));
+    await tester.tap(find.text('Reenviar correo'));
     await tester.pumpAndSettle();
 
     expect(repository.resentEmail, 'cliente@example.com');
     expect(find.text('Correo reenviado.'), findsOneWidget);
   });
 
-  testWidgets('submits a verification token', (tester) async {
+  testWidgets('checks the verification status for the entered email', (
+    tester,
+  ) async {
     final repository = _FakeAuthRepository();
     await tester.pumpWidget(
       ProviderScope(
@@ -173,18 +190,19 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Token o enlace del correo'),
-      'verification-token',
-    );
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await tester.tap(find.text('Ya verifiqué mi correo'));
+    await tester.pumpAndSettle();
 
-    expect(repository.verifiedToken, 'verification-token');
-    expect(find.text('Correo verificado.'), findsAtLeastNWidgets(1));
+    expect(repository.verificationStatusEmail, 'cliente@example.com');
+    expect(
+      find.textContaining('Aún no aparece la verificación'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('requests and resets a forgotten password', (tester) async {
+  testWidgets('requests a password reset for completion in the browser', (
+    tester,
+  ) async {
     final repository = _FakeAuthRepository();
     await tester.pumpWidget(
       ProviderScope(
@@ -200,24 +218,114 @@ void main() {
 
     expect(repository.resetRequestEmail, 'cliente@example.com');
     expect(find.text('Revisa tu correo'), findsOneWidget);
+    expect(
+      find.textContaining(
+        'Ábrelo desde tu correo para continuar en el navegador',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Token o enlace de recuperación'), findsNothing);
+    expect(find.text('Nueva contraseña'), findsNothing);
+  });
 
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Token o enlace de recuperación'),
-      'https://example.com/auth/restablecer-contrasena?token=reset-token',
+  testWidgets('submits the long email-change code and returns to login', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: ChangeEmailPage()),
+      ),
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Nueva contraseña'),
-      'NuevaClave123',
+      find.widgetWithText(TextFormField, 'Nuevo correo'),
+      'nuevo@example.com',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Confirma la nueva contraseña'),
-      'NuevaClave123',
+      find.widgetWithText(TextFormField, 'Contraseña actual'),
+      'ClaveActual123',
     );
-    await tester.ensureVisible(find.text('Actualizar contraseña'));
-    await tester.tap(find.text('Actualizar contraseña'));
+    await tester.tap(find.text('Enviar código'));
     await tester.pumpAndSettle();
 
-    expect(repository.resetToken, 'reset-token');
-    expect(repository.resetPasswordValue, 'NuevaClave123');
+    expect(repository.newEmailRequested, 'nuevo@example.com');
+    expect(repository.emailChangePassword, 'ClaveActual123');
+    expect(find.text('Código de confirmación'), findsOneWidget);
+
+    const longJwt = 'header.payload.signature-that-is-not-six-digits';
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Código de confirmación'),
+      longJwt,
+    );
+    await tester.tap(find.text('Confirmar cambio'));
+    await tester.pumpAndSettle();
+
+    expect(repository.emailChangeToken, longJwt);
+    expect(find.text('Iniciar sesión'), findsNWidgets(2));
+  });
+
+  testWidgets('only offers verification for an unverified-email 403', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..loginFailure = DioException(
+        requestOptions: RequestOptions(path: '/auth/login'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/auth/login'),
+          statusCode: 403,
+          data: {'detail': 'Debes verificar tu correo electrónico.'},
+        ),
+      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Correo'),
+      'cliente@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Contraseña'),
+      'Clave123',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Verificar o reenviar correo'), findsOneWidget);
+  });
+
+  testWidgets('does not send a disabled-account 403 to email verification', (
+    tester,
+  ) async {
+    final repository = _FakeAuthRepository()
+      ..loginFailure = DioException(
+        requestOptions: RequestOptions(path: '/auth/login'),
+        response: Response(
+          requestOptions: RequestOptions(path: '/auth/login'),
+          statusCode: 403,
+          data: {'detail': 'La cuenta está desactivada.'},
+        ),
+      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: LoginPage()),
+      ),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Correo'),
+      'cliente@example.com',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Contraseña'),
+      'Clave123',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Iniciar sesión'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Verificar o reenviar correo'), findsNothing);
   });
 }

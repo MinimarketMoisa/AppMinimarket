@@ -6,7 +6,7 @@ abstract class AuthRepository {
     required String nombreCompleto,
     required String email,
     required String password,
-    required String telefono,
+    String? telefono,
   });
   Future<String> applyAsCourier({
     required String nombreCompleto,
@@ -15,13 +15,14 @@ abstract class AuthRepository {
     required String telefono,
     String? placaVehiculo,
   });
-  Future<String> verifyEmail(String token);
+  Future<bool> isEmailVerified(String email);
   Future<String> resendVerification(String email);
   Future<String> requestPasswordReset(String email);
-  Future<String> resetPassword({
-    required String token,
+  Future<String> requestEmailChange({
+    required String newEmail,
     required String password,
   });
+  Future<String> confirmEmailChange(String token);
   Future<UserEntity?> currentUser();
   Future<void> logout();
 }

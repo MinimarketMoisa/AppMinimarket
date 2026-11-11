@@ -14,8 +14,8 @@ class MockApiInterceptor extends Interceptor {
   int _nextUser = 4, _nextDir = 3, _nextPedido = 1;
   String _estadoRepartidor = 'LIBRE';
   int _nextTransaction = 1;
-  String? _pendingVerificationEmail;
-  String? _pendingPasswordResetToken;
+  String? _pendingEmailChangeToken;
+  String? _pendingNewEmail;
   final Map<String, dynamic> _repartidorUbicacion = {
     'latitud': 13.4840,
     'longitud': -88.1840,
@@ -301,7 +301,7 @@ class MockApiInterceptor extends Interceptor {
     }
     if (path == ApiEndpoints.register && m == 'POST') {
       final phone = (body['telefono'] as String? ?? '').trim();
-      if (phone.length < 7 || phone.length > 20) {
+      if (phone.isNotEmpty && (phone.length < 7 || phone.length > 20)) {
         throw _MockError(422, 'Ingresa un teléfono válido');
       }
       if (_users.any((u) => u['email'] == body['email'])) {
@@ -312,29 +312,26 @@ class MockApiInterceptor extends Interceptor {
         'nombre_completo': body['nombre_completo'],
         'email': body['email'],
         'password': body['password'],
-        'telefono': phone,
+        'telefono': phone.isEmpty ? null : phone,
         'rol': 'cliente',
         'email_verificado': false,
       };
       _users.add(u);
-      _pendingVerificationEmail = u['email'] as String;
       return {
         ..._publicUser(u),
         'mensaje': 'Te hemos enviado un correo de verificación.',
       };
     }
-    if (path == ApiEndpoints.verifyEmail && m == 'POST') {
-      if (body['token'] != '123456' || _pendingVerificationEmail == null) {
-        throw _MockError(400, 'Token de verificación inválido');
-      }
-      final user = _users.firstWhere(
-        (item) => item['email'] == _pendingVerificationEmail,
+    if (path == ApiEndpoints.verificationStatus && m == 'GET') {
+      final email = (q['email'] as String? ?? '').trim().toLowerCase();
+      final user = _users.where(
+        (item) => (item['email'] as String).toLowerCase() == email,
       );
-      user['email_verificado'] = true;
-      _pendingVerificationEmail = null;
+      if (user.isEmpty) throw _MockError(404, 'Cuenta no encontrada');
       return {
-        'mensaje': 'Correo verificado correctamente.',
-        'verificado': true,
+        'email': user.first['email'],
+        'email_verificado': user.first['email_verificado'],
+        'activo': true,
       };
     }
     if (path == ApiEndpoints.resendVerification && m == 'POST') {
@@ -348,48 +345,12 @@ class MockApiInterceptor extends Interceptor {
       if (user.first['email_verificado'] == true) {
         throw _MockError(409, 'El correo ya está verificado');
       }
-      _pendingVerificationEmail = user.first['email'] as String;
       return {'mensaje': 'Correo de verificación reenviado.'};
     }
     if (path == ApiEndpoints.forgotPassword && m == 'POST') {
-      final email = (body['email'] as String? ?? '').trim().toLowerCase();
-      _pendingPasswordResetToken = null;
-      final user = _users.where(
-        (item) => (item['email'] as String).toLowerCase() == email,
-      );
-      if (user.isNotEmpty) {
-        _pendingPasswordResetToken = 'mock-reset-${user.first['id']}';
-      }
       return {
         'mensaje': 'Si el correo está registrado, recibirás instrucciones para recuperar tu contraseña.',
       };
-    }
-    if (path == ApiEndpoints.resetPassword && m == 'POST') {
-      final token = (body['token'] as String? ?? '').trim();
-      final password = body['password'] as String? ?? '';
-      if (token.isEmpty || token != _pendingPasswordResetToken) {
-        throw _MockError(
-          400,
-          'El enlace de recuperación no es válido o expiró.',
-        );
-      }
-      if (password.length < 8 || password.length > 128) {
-        throw _MockError(
-          422,
-          'La contraseña debe tener entre 8 y 128 caracteres.',
-        );
-      }
-      final userId = int.tryParse(token.substring('mock-reset-'.length));
-      final user = _users.where((item) => item['id'] == userId);
-      if (user.isEmpty) {
-        throw _MockError(
-          400,
-          'El enlace de recuperación no es válido o expiró.',
-        );
-      }
-      user.first['password'] = password;
-      _pendingPasswordResetToken = null;
-      return {'mensaje': 'Tu contraseña fue actualizada correctamente.'};
     }
     if (path == ApiEndpoints.solicitudRepartidor && m == 'POST') {
       final email = (body['email'] as String? ?? '').trim().toLowerCase();
@@ -454,6 +415,35 @@ class MockApiInterceptor extends Interceptor {
     if (path == ApiEndpoints.sucursales) return _sucursales;
     if (me == null) throw _MockError(401, 'No autenticado');
     if (path == ApiEndpoints.me) return _publicUser(me);
+    if (path == ApiEndpoints.requestEmailChange && m == 'POST') {
+      final newEmail = (body['nuevo_email'] as String? ?? '').trim();
+      if ((me['email'] as String).toLowerCase() == newEmail.toLowerCase()) {
+        throw _MockError(400, 'El nuevo correo es igual al actual');
+      }
+      if (me['password'] != body['password']) {
+        throw _MockError(403, 'Contraseña incorrecta');
+      }
+      if (_users.any(
+        (user) =>
+            user['id'] != me['id'] &&
+            (user['email'] as String).toLowerCase() == newEmail.toLowerCase(),
+      )) {
+        throw _MockError(409, 'El correo ya está en uso');
+      }
+      _pendingNewEmail = newEmail;
+      _pendingEmailChangeToken = 'mock-email-change-${me['id']}';
+      return {'mensaje': 'Código enviado al nuevo correo.'};
+    }
+    if (path == ApiEndpoints.confirmEmailChange && m == 'POST') {
+      if (body['token'] != _pendingEmailChangeToken ||
+          _pendingNewEmail == null) {
+        throw _MockError(400, 'Código de cambio de correo inválido');
+      }
+      me['email'] = _pendingNewEmail;
+      _pendingNewEmail = null;
+      _pendingEmailChangeToken = null;
+      return {'mensaje': 'Correo actualizado. Inicia sesión nuevamente.'};
+    }
     if (path == ApiEndpoints.municipios) return _municipios;
     if (path == ApiEndpoints.direcciones) {
       if (m == 'POST') {

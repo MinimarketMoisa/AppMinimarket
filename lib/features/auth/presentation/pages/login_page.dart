@@ -53,11 +53,14 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           _error = errorMessage(e);
           _needsVerification =
               e is DioException &&
-              (e.response?.statusCode == 403 ||
-                  (e.response?.data is Map &&
-                      '${(e.response!.data as Map)['detail'] ?? ''}'
-                          .toLowerCase()
-                          .contains('verific')));
+              e.response?.statusCode == 403 &&
+              e.response?.data is Map &&
+              '${(e.response!.data as Map)['detail'] ?? ''}'
+                  .toLowerCase()
+                  .contains('verificar') &&
+              '${(e.response!.data as Map)['detail'] ?? ''}'
+                  .toLowerCase()
+                  .contains('correo');
         });
       }
     } finally {
@@ -163,9 +166,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               Expanded(
                                 child: Text(
                                   _error!,
-                                  style: TextStyle(
-                                    color: cs.onErrorContainer,
-                                  ),
+                                  style: TextStyle(color: cs.onErrorContainer),
                                 ),
                               ),
                             ],

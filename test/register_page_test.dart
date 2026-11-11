@@ -4,19 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:minimarket/features/auth/presentation/pages/register_page.dart';
 
 void main() {
-  testWidgets('requires a phone number to create a customer account', (
-    tester,
-  ) async {
+  testWidgets('allows registration without a phone number', (tester) async {
     await tester.pumpWidget(
-      const ProviderScope(
-        child: MaterialApp(home: RegisterPage()),
-      ),
+      const ProviderScope(child: MaterialApp(home: RegisterPage())),
     );
 
-    await tester.ensureVisible(find.text('Registrarme'));
-    await tester.tap(find.text('Registrarme'));
-    await tester.pump();
-
-    expect(find.text('Ingresa un teléfono válido'), findsOneWidget);
+    final phoneField = tester.widget<TextFormField>(
+      find.widgetWithText(TextFormField, 'Teléfono'),
+    );
+    expect(phoneField.validator, isNull);
   });
 }
